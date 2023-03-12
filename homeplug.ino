@@ -70,6 +70,9 @@ uint16_t pevSequenceDelayCycles;
 uint8_t nRemainingStartAttenChar;
 uint8_t remainingNumberOfSounds;
 uint8_t AttenCharIndNumberOfSounds;
+uint8_t SdpRepetitionCounter;
+uint8_t isSDPDone;
+uint8_t nEvseModemMissingCounter;
 
 //#define addToTrace(format, ...) log_v(format, ##__VA_ARGS__)
 #define addToTrace(format, ...) Serial.println(format)
@@ -77,6 +80,9 @@ uint8_t AttenCharIndNumberOfSounds;
 /* stubs for later implementation */
 #define addressManager_setEvseMac(x)
 #define showStatus(x, y)
+//#define ipv6_initiateSdpRequest()
+#define callbackReadyForTcp(x)
+#define addressManagerHasSeccIp() 0
 
 /* Extracting the EtherType from a received message. */
 uint16_t getEtherType(uint8_t *messagebufferbytearray) {
@@ -412,6 +418,39 @@ void evaluateSetKeyCnf(void) {
 	  }
 }
 
+void composeGetKey(void) {
+		//# CM_GET_KEY.REQ request
+    //    # from https://github.com/uhi22/plctool2/blob/master/listen_to_eth.c
+    //    # and homeplug_av21_specification_final_public.pdf
+    mytransmitbufferLen = 60;
+    cleanTransmitBuffer();
+    //# Destination MAC
+    fillDestinationMac(MAC_BROADCAST);
+    //# Source MAC
+    fillSourceMac(myMAC);
+    //# Protocol
+    mytransmitbuffer[12]=0x88; // # Protocol HomeplugAV
+    mytransmitbuffer[13]=0xE1;
+    mytransmitbuffer[14]=0x01; // # version
+    mytransmitbuffer[15]=0x0C; // # CM_GET_KEY.REQ https://github.com/uhi22/plctool2/blob/master/plc_homeplug.h
+    mytransmitbuffer[16]=0x60; // #
+    mytransmitbuffer[17]=0x00; // # 2 bytes fragmentation information. 0000 means: unfragmented.
+    mytransmitbuffer[18]=0x00; // #       
+    mytransmitbuffer[19]=0x00; // # 0 Request Type 0=direct
+    mytransmitbuffer[20]=0x01; // # 1 RequestedKeyType only "NMK" is permitted over the H1 interface.
+                               //        #    value see HomeplugAV2.1 spec table 11-89. 1 means AES-128.
+                                       
+    setNidAt(21); //# NID starts here (table 11-91 Homeplug spec is wrong. Verified by accepted command.)
+    mytransmitbuffer[28]=0xaa; // # 10-13 mynonce. The position at 28 is verified by the response of the devolo.
+    mytransmitbuffer[29]=0xaa; // # 
+    mytransmitbuffer[30]=0xaa; // # 
+    mytransmitbuffer[31]=0xaa; // # 
+    mytransmitbuffer[32]=0x04; // # 14 PID. According to  ISO15118-3 fix value 4, "HLE protocol"
+    mytransmitbuffer[33]=0x00; // # 15-16 PRN Protocol run number
+    mytransmitbuffer[34]=0x00; // # 
+    mytransmitbuffer[35]=0x00; // # 17 PMN Protocol message number
+}
+
 void sendTestFrame(void) {
   composeGetSwReq();
   myEthTransmit();
@@ -440,6 +479,11 @@ void evaluateGetSwCnf(void) {
       //addToTrace(strMac);
       addToTrace("For " + strMac + " the software version is " + String(strVersion)); 
     }        
+}
+
+uint8_t isEvseModemFound(void) {
+        //#return 0 # todo: look whether the MAC of the EVSE modem is in the list of detected modems
+        return numberOfFoundModems>1;
 }
 
 void enterState(int n) {
@@ -566,6 +610,116 @@ void runPevSequencer(void) {
             //# including the transmission of SET_KEY.REQ)
             return;
 	  }
+    if (pevSequenceState==STATE_WAITING_FOR_RESTART2) { //  # SLAC is finished, SET_KEY.REQ was 
+                                                        //         # transmitted. The homeplug modem makes
+                                                        //         # the reset and we need to wait until it
+                                                        //         # is up with the new key.
+            if (pevSequenceDelayCycles>0) {
+                pevSequenceDelayCycles-=1;
+                return;
+            }
+            addToTrace("[PEVSLAC] Checking whether the pairing worked, by GET_KEY.REQ...");
+            numberOfFoundModems = 0; // # reset the number, we want to count the modems newly.
+            composeGetKey();
+            myEthTransmit();                
+            enterState(STATE_FIND_MODEMS2);
+            return;
+    }
+    if (pevSequenceState==STATE_FIND_MODEMS2) { // # Waiting for the modems to answer.
+            if (pevSequenceCyclesInState>=10) { //
+                //# It was sufficient time to get the answers from the modems.
+                addToTrace("[PEVSLAC] It was sufficient time to get the answers from the modems.");
+                //# Let's see what we received.
+                if (!isEvseModemFound()) {
+                    nEvseModemMissingCounter+=1;
+                    addToTrace("[PEVSLAC] No EVSE seen (yet). Still waiting for it.");
+                    //# At the Alpitronic we measured, that it takes 7s between the SlacMatchResponse and
+                    //# the chargers modem reacts to GetKeyRequest. So we should wait here at least 10s.
+                    if (nEvseModemMissingCounter>10) {
+                            // # We lost the connection to the EVSE modem. Back to the beginning.
+                            addToTrace("[PEVSLAC] We lost the connection to the EVSE modem. Back to the beginning.");
+                            enterState(STATE_INITIAL);
+                            return;
+                    }
+                    // # The EVSE modem is (shortly) not seen. Ask again.
+                    pevSequenceDelayCycles=30;
+                    enterState(STATE_WAITING_FOR_RESTART2);
+                    return;
+                }
+                //# The EVSE modem is present (or we are simulating)
+                addToTrace("[PEVSLAC] EVSE is up, pairing successful.");
+                nEvseModemMissingCounter=0;
+                pevSequenceDelayCycles=0;
+                composeGetSwReq();
+                addToTrace("[PEVSLAC] Requesting SW versions from the modems...");
+                myEthTransmit();
+                enterState(STATE_WAITING_FOR_SW_VERSIONS);
+            }                
+            return;
+        }        
+        if (pevSequenceState==STATE_WAITING_FOR_SW_VERSIONS) {
+            if (pevSequenceCyclesInState>=2) { // # 2 cycles = 60ms are more than sufficient.
+                //# Measured: The local modem answers in less than 1ms. The remote modem in ~5ms.
+                //# It was sufficient time to get the answers from the modems.
+                addToTrace("[PEVSLAC] It was sufficient time to get the SW versions from the modems.");
+                enterState(STATE_READY_FOR_SDP);
+            }    
+            return;
+        }
+        if (pevSequenceState==STATE_READY_FOR_SDP) {
+            //# The AVLN is established, we have at least two modems in the network.
+            //# If we did not SDP up to now, let's do it.
+            if (isSDPDone) {
+                //# SDP is already done. No need to do it again. We are finished for the normal case.
+                //# But we want to check whether the connection is still alive, so we start the
+                //# modem-search from time to time.
+                pevSequenceDelayCycles = 300; // e.g. 10s
+                enterState(STATE_WAITING_FOR_RESTART2);
+                return;
+            }                
+            // SDP was not done yet. Now we start it.
+            showStatus("SDP ongoing", "pevState");
+            addToTrace("[PEVSLAC] SDP was not done yet. Now we start it.");
+            // Next step is to discover the chargers communication controller (SECC) using discovery protocol (SDP).
+            pevSequenceDelayCycles=0;
+            SdpRepetitionCounter = 50; // prepare the number of retries for the SDP. The more the better.
+            enterState(STATE_SDP);
+            return;
+        }        
+        if (pevSequenceState==STATE_SDP) { // SDP request transmission and waiting for SDP response.
+            if (addressManagerHasSeccIp()) {
+                // we received an SDP response, and can start the high-level communication
+                showStatus("SDP finished", "pevState");
+                addToTrace("[PEVSLAC] Now we know the chargers IP.");
+                isSDPDone = 1;
+                callbackReadyForTcp(1);
+                // Continue with checking the connection, for the case somebody pulls the plug.
+                pevSequenceDelayCycles = 300; // e.g. 10s
+                enterState(STATE_WAITING_FOR_RESTART2);
+                return;
+            }
+            if (pevSequenceDelayCycles>0) {
+                // just waiting until next action
+                pevSequenceDelayCycles-=1;
+                return;
+            }                
+            if (SdpRepetitionCounter>0) {
+                //# Reference: The Ioniq waits 4.1s from the slac_match.cnf to the SDP request.
+                //# Here we send the SdpRequest. Maybe too early, but we will retry if there is no response.
+                ipv6_initiateSdpRequest();
+                SdpRepetitionCounter-=1;
+                pevSequenceDelayCycles = 15; // e.g. half-a-second delay until re-try of the SDP
+                enterState(STATE_SDP); // stick in the same state
+                return;
+            }
+            // All repetitions are over, no SDP response was seen. Back to the beginning.    
+            addToTrace("[PEVSLAC] ERROR: Did not receive SDP response. Starting from the beginning.");
+            enterState(STATE_INITIAL);
+            return;
+        }
+        //# invalid state is reached. As robustness measure, go to initial state.
+        enterState(STATE_INITIAL);
+    
 }
 
 void evaluateReceivedHomeplugPacket(void) {
