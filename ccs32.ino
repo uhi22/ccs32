@@ -46,7 +46,11 @@ esp_eth_handle_t eth_handle;
 /*********************************************/
 
 #define LED 2 /* The IO2 is used for an LED. This LED is externally added to the WT32-ETH01 board. */
-
+uint32_t currentTime;
+uint32_t lastTime1s;
+uint32_t lastTime30ms;
+uint32_t nCycles30ms;
+uint8_t ledState;
 uint32_t nTotalEthReceiveBytes; /* total number of bytes which has been received from the ethernet port */
 #define MY_ETH_TRANSMIT_BUFFER_LEN 200
 uint8_t mytransmitbuffer[MY_ETH_TRANSMIT_BUFFER_LEN];
@@ -200,6 +204,27 @@ bool initEth(void) {
 
 /**********************************************************/
 
+void task30ms(void) {
+	nCycles30ms++;
+	runPevSequencer();
+}
+
+void task1s(void) {
+  if (ledState==0) {
+    digitalWrite(LED,HIGH);
+    Serial.println("LED on");
+	ledState = 1;
+  } else {
+    digitalWrite(LED,LOW);
+    Serial.println("LED off");
+	ledState = 0;
+  }
+  log_v("nTotalEthReceiveBytes=%ld, nCycles30ms=%ld", nTotalEthReceiveBytes, nCycles30ms);
+  sendTestFrame();
+}
+
+/**********************************************************/
+
 void setup() {
   // Set pin mode
   pinMode(LED,OUTPUT);
@@ -210,15 +235,17 @@ void setup() {
   } else {
     Serial.println("Error: Ethernet init failed.");
   }
+  homeplugInit();
 }
 
 void loop() {
-  delay(1000);
-  digitalWrite(LED,HIGH);
-  Serial.println("LED on");
-  delay(1000);
-  digitalWrite(LED,LOW);
-  Serial.println("LED off");
-  log_v("nTotalEthReceiveBytes=%ld", nTotalEthReceiveBytes); 
-  sendTestFrame();
+  currentTime = millis();
+  if ((currentTime - lastTime30ms)>30) {
+	  lastTime30ms += 30;
+	  task30ms();
+  }
+  if ((currentTime - lastTime1s)>1000) {
+	  lastTime1s += 1000;
+	  task1s();
+  }
 }

@@ -13,7 +13,7 @@ https://github.com/uhi22/pyPLC
 - much less current consumption compared to the Raspberry or Notebook
 - more compact design
 
-# Drawbacks
+## Drawbacks
 - no log file for offline analysis
 
 ## Change history / functional status
