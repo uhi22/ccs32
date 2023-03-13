@@ -74,8 +74,10 @@ uint8_t SdpRepetitionCounter;
 uint8_t isSDPDone;
 uint8_t nEvseModemMissingCounter;
 
-//#define addToTrace(format, ...) log_v(format, ##__VA_ARGS__)
-#define addToTrace(format, ...) Serial.println(format)
+void addToTrace(String strTrace) {
+  //Serial.println(strTrace);  
+  log_v("%s", strTrace.c_str());  
+}
 
 /* stubs for later implementation */
 #define addressManager_setEvseMac(x)
@@ -178,7 +180,7 @@ void composeSlacParamReq(void) {
 
 void evaluateSlacParamCnf(void) {
     //# As PEV, we receive the first response from the charger.
-    addToTrace("received SLAC_PARAM.CNF");
+    addToTrace("[PEVSLAC] received SLAC_PARAM.CNF");
     if (iAmPev) {
         if (pevSequenceState==STATE_WAITING_FOR_SLAC_PARAM_CNF) { // # we were waiting for the SlacParamCnf
             pevSequenceDelayCycles = 4; // # original Ioniq is waiting 200ms
@@ -246,7 +248,7 @@ void composeNmbcSoundInd(void) {
 
 void evaluateAttenCharInd(void) {
   uint8_t i;  
-  addToTrace("received ATTEN_CHAR.IND");
+  addToTrace("[PEVSLAC] received ATTEN_CHAR.IND");
   if (iAmPev==1) {
         //addToTrace("[PEVSLAC] received AttenCharInd in state " + str(pevSequenceState))
         if (pevSequenceState==STATE_WAIT_FOR_ATTEN_CHAR_IND) { // # we were waiting for the AttenCharInd
@@ -331,22 +333,22 @@ void evaluateSlacMatchCnf(void) {
             //# If we are EVSE, nothing to do. We have sent the match.CNF by our own.
             //# The SET_KEY was already done at startup.
     } else {
-            addToTrace("received SLAC_MATCH.CNF");
+            addToTrace("[PEVSLAC] received SLAC_MATCH.CNF");
             s = "";
             for (i=0; i<7; i++) { // # NID has 7 bytes
                 NID[i] = myreceivebuffer[85+i];
                 s=s+String(NID[i], HEX)+ " ";
             }    
-            addToTrace("From SlacMatchCnf, got network ID (NID) " + s);      
+            addToTrace("[PEVSLAC] From SlacMatchCnf, got network ID (NID) " + s);      
             s = "";
             for (i=0; i<16; i++) {
                 NMK[i] = myreceivebuffer[93+i];
                 s=s+String(NMK[i], HEX)+ " ";
             }                
-            addToTrace("From SlacMatchCnf, got network membership key (NMK) " + s);
+            addToTrace("[PEVSLAC] From SlacMatchCnf, got network membership key (NMK) " + s);
             //# use the extracted NMK and NID to set the key in the adaptor:
             composeSetKey();
-            addToTrace("transmitting CM_SET_KEY.REQ");
+            addToTrace("[PEVSLAC] transmitting CM_SET_KEY.REQ");
             myEthTransmit();
             if (pevSequenceState==STATE_WAITING_FOR_SLAC_MATCH_CNF) { //# we were waiting for finishing the SLAC_MATCH.CNF and SET_KEY.REQ
                 enterState(STATE_WAITING_FOR_RESTART2);
@@ -409,12 +411,12 @@ void evaluateSetKeyCnf(void) {
     uint8_t result;
     //# In spec, the result 0 means "success". But in reality, the 0 means: did not work. When it works,
     //# then the LEDs are blinking (device is restarting), and the response is 1.
-    addToTrace("received SET_KEY.CNF");
+    addToTrace("[PEVSLAC] received SET_KEY.CNF");
     result = myreceivebuffer[19];
     if (result == 0) {
-        addToTrace("SetKeyCnf says 0, this would be a bad sign for local modem, but normal for remote.");
+        addToTrace("[PEVSLAC] SetKeyCnf says 0, this would be a bad sign for local modem, but normal for remote.");
     } else {
-        addToTrace("SetKeyCnf says " + String(result) + ", this is formally 'rejected', but indeed ok.");
+        addToTrace("[PEVSLAC] SetKeyCnf says " + String(result) + ", this is formally 'rejected', but indeed ok.");
 	  }
 }
 
@@ -461,7 +463,7 @@ void evaluateGetSwCnf(void) {
     # Reference: see wireshark interpreted frame from TPlink, Ioniq and Alpitronic charger */
     uint8_t i, x;  
     String strMac;    
-    addToTrace("received GET_SW.CNF");
+    addToTrace("[PEVSLAC] received GET_SW.CNF");
     numberOfSoftwareVersionResponses+=1;
     for (i=0; i<6; i++) {
         sourceMac[i] = myreceivebuffer[6+i];
@@ -500,12 +502,13 @@ int isTooLong(void) {
 void runPevSequencer(void) {
     // # in PevMode, check whether homeplug modem is connected, run the SLAC and SDP
     pevSequenceCyclesInState+=1;
+    if (pevSequenceState == STATE_INITIAL)   {
+        /* We assume that the modem is present, and go directly into SLAC, without modem search. */
+        enterState(STATE_READY_FOR_SLAC);
+        return;
+    } 
     if (pevSequenceState==STATE_READY_FOR_SLAC) {
-            if (numberOfFoundModems==0) {
-                showStatus("NoModem, simuSLAC", "pevState");
-            } else {
-                showStatus("Starting SLAC", "pevState");
-			      }	
+            showStatus("Starting SLAC", "pevState");
             addToTrace("[PEVSLAC] Sending SLAC_PARAM.REQ...");
             composeSlacParamReq();
             myEthTransmit();                
@@ -513,7 +516,7 @@ void runPevSequencer(void) {
             return;
 	  }
     if (pevSequenceState==STATE_WAITING_FOR_SLAC_PARAM_CNF) { // # Waiting for slac_param confirmation.
-            if (pevSequenceCyclesInState>=30) {
+            if (pevSequenceCyclesInState>=33) {
                 // # No response for 1s, this is an error.
                 addToTrace("[PEVSLAC] Timeout while waiting for SLAC_PARAM.CNF");
                 enterState(STATE_INITIAL);

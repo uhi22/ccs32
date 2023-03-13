@@ -107,7 +107,7 @@ bool initEth(void) {
   int mdc=ETH_PHY_MDC;
   int mdio=ETH_PHY_MDIO;
 
-  log_v("This is initEth.");  
+  //log_v("This is initEth.");  
 	//log_printf(ARDUHAL_LOG_FORMAT(I, "phy_addr %d"), phy_addr);
 	//log_printf(ARDUHAL_LOG_FORMAT(I, "power %d"), power);
 	//log_printf(ARDUHAL_LOG_FORMAT(I, "mdc %d"), mdc);
@@ -131,7 +131,7 @@ bool initEth(void) {
     log_e("esp_eth_mac_new_esp32 failed");
     return false;
   }
-  log_v("done");
+  //log_v("done");
     
   eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
   phy_config.phy_addr = phy_addr;
@@ -144,7 +144,7 @@ bool initEth(void) {
     log_e("esp_eth_phy_new failed");
     return false;
   }
-  log_v("done");
+  //log_v("done");
 
   eth_handle = NULL;
   esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(eth_mac, eth_phy);
@@ -153,7 +153,7 @@ bool initEth(void) {
     log_e("esp_eth_driver_install failed");
     return false;
   }
-  log_v("done");
+  //log_v("done");
 
   log_v("creating event loop");
   esp_err_t err = esp_event_loop_create_default();
@@ -161,26 +161,26 @@ bool initEth(void) {
   	log_e("esp_event_loop_create_default failed!");
     return false;
   }
-  log_v("done");
+  //log_v("done");
 
   /* registering the event callback from the ethernet driver */
   log_v("registering the event callback from the ethernet driver.");
   rc = esp_event_handler_instance_register(ETH_EVENT, ESP_EVENT_ANY_ID, &myEthernetEventCallback, NULL, NULL);
-  log_v("returned %d", rc);    
+  //log_v("returned %d", rc);    
   if(rc) {
         log_e("event_handler_instance_register for ETH_EVENT Failed! rc %d", rc);
         return false;
   }
-  log_v("done");
+  //log_v("done");
 
   log_v("registering the receive callback from the ethernet driver.");
   rc = esp_eth_update_input_path(eth_handle, &myEthernetReceiveCallback, NULL);
-  log_v("returned %d", rc);    
+  //log_v("returned %d", rc);    
   if(rc) {
       log_e("esp_eth_update_input_path Failed! rc %d", rc);
       return false;
   }
-  log_v("done");
+  //log_v("done");
 
   /* starting the ethernet driver in standalone mode, means without TCP/IP etc. */
   log_v("starting the ethernet driver in standalone mode.");    
@@ -188,17 +188,15 @@ bool initEth(void) {
     log_e("esp_eth_start failed");
     return false;
   }
-  log_v("esp_eth_start done");
+  //log_v("esp_eth_start done");
 
-  log_v("requesting MAC."); 
+  //log_v("requesting MAC."); 
   rc = esp_eth_ioctl(eth_handle, ETH_CMD_G_MAC_ADDR, myMAC);
   log_v("myMAC %hx:%hx:%hx:%hx:%hx:%hx", myMAC[0], myMAC[1], myMAC[2], myMAC[3], myMAC[4], myMAC[5]); 
         
   // holds a few milliseconds to enter into a good state
   // FIX ME -- adresses issue https://github.com/espressif/arduino-esp32/issues/5733
-  log_v("before delay 50");    
   delay(50);
-  log_v("setup finished");   
   return true; 
 }
 
@@ -212,15 +210,15 @@ void task30ms(void) {
 void task1s(void) {
   if (ledState==0) {
     digitalWrite(LED,HIGH);
-    Serial.println("LED on");
+    //Serial.println("LED on");
 	ledState = 1;
   } else {
     digitalWrite(LED,LOW);
-    Serial.println("LED off");
+    //Serial.println("LED off");
 	ledState = 0;
   }
   log_v("nTotalEthReceiveBytes=%ld, nCycles30ms=%ld", nTotalEthReceiveBytes, nCycles30ms);
-  sendTestFrame();
+  //sendTestFrame(); /* just for testing, send something on the Ethernet */
 }
 
 /**********************************************************/
@@ -231,11 +229,15 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Started.");
   if (initEth()) {
-    Serial.println("Ethernet initialized");
+    log_v("Ethernet initialized");
   } else {
-    Serial.println("Error: Ethernet init failed.");
+    log_v("Error: Ethernet init failed.");
   }
   homeplugInit();
+  log_v("Setup finished. The time for the tasks starts here.");
+  currentTime = millis();  
+	lastTime30ms = currentTime;
+	lastTime1s = currentTime;
 }
 
 void loop() {
