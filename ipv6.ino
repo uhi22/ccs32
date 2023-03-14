@@ -5,6 +5,16 @@ const uint8_t broadcastIPv6[16] = { 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* For the moment, just use the address from the Win10 notebook, and change the last byte from 0x0e to 0x1e. */
 const uint8_t EvccIp[16] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0xc6, 0x90, 0x83, 0xf3, 0xfb, 0xcb, 0x98, 0x1e};
 
+uint8_t sourceIp[16];
+uint16_t sourceport;
+uint16_t destinationport;
+uint16_t udplen;
+uint16_t udpsum;
+
+#define UDP_PAYLOAD_LEN 100
+uint8_t udpPayload[UDP_PAYLOAD_LEN];
+uint16_t udpPayloadLen;
+
 #define V2G_FRAME_LEN 100
 uint8_t v2gtpFrameLen;
 uint8_t v2gtpFrame[V2G_FRAME_LEN];
@@ -17,6 +27,70 @@ uint8_t UdpRequest[UDP_REQUEST_LEN];
 uint8_t IpRequestLen;
 uint8_t IpRequest[IP_REQUEST_LEN];
 
+
+void evaluateUdpPayload(void) {
+  uint16_t v2gptPayloadType;
+  if ((destinationport == 15118) or (sourceport == 15118)) { // port for the SECC
+    if ((udpPayload[0]==0x01) and (udpPayload[1]==0xFE)) { //# protocol version 1 and inverted
+                //# it is a V2GTP message                
+                //showAsHex(udpPayload, "V2GTP ")
+                v2gptPayloadType = udpPayload[2] * 256 + udpPayload[3];
+                //# 0x8001 EXI encoded V2G message (Will NOT come with UDP. Will come with TCP.)
+                //# 0x9000 SDP request message (SECC Discovery)
+                //# 0x9001 SDP response message (SECC response to the EVCC)
+                if (v2gptPayloadType == 0x9001) {
+                    //# it is a SDP response from the charger to the car
+                    addToTrace("it is a SDP response from the charger to the car");
+#ifdef NIX                    
+                        v2gptPayloadLen = udpPayload[4] * 256 ** 3 + udpPayload[5] * 256 ** 2 + udpPayload[6] * 256 + udpPayload[7]
+                        if (v2gptPayloadLen == 20):
+                            //# 20 is the only valid length for a SDP response.
+                            print("[PEV] Received SDP response")
+                            //# at byte 8 of the UDP payload starts the IPv6 address of the charger.
+                            for i in range(0, 16):
+                                SeccIp[i] = udpPayload[8+i] # 16 bytes IP address of the charger
+                            //# Extract the TCP port, on which the charger will listen:
+                            seccTcpPort = (udpPayload[8+16]*256) + udpPayload[8+16+1]
+                            addressManager.setSeccIp(SeccIp)
+                            addressManager.setSeccTcpPort(seccTcpPort)
+                  #endif                            
+                } else {    
+                  addToTrace("v2gptPayloadType " + String(v2gptPayloadType, HEX) + " not supported");
+                }                  
+    }
+  }                
+}
+
+void ipv6_evaluateReceivedPacket(void) {
+  //# The evaluation function for received ipv6 packages.
+  uint16_t nextheader; 
+  uint16_t i; 
+  if (myreceivebufferLen>60) {
+            //# extract the source ipv6 address
+            memcpy(sourceIp, &myreceivebuffer[22], 16);
+            nextheader = myreceivebuffer[20];
+            if (nextheader == 0x11) { //  it is an UDP frame
+                sourceport = myreceivebuffer[54] * 256 + myreceivebuffer[55];
+                destinationport = myreceivebuffer[56] * 256 + myreceivebuffer[57];
+                udplen = myreceivebuffer[58] * 256 + myreceivebuffer[59];
+                udpsum = myreceivebuffer[60] * 256 + myreceivebuffer[61];
+                //# udplen is including 8 bytes header at the begin
+                if (udplen>8) {
+                    udpPayloadLen = udplen-8;
+                    //# print("udplen=" + str(udplen))
+                    //# print("myreceivebuffer len=" + str(len(myreceivebuffer)))
+                    for (i=0; i<udplen-8; i++) {
+                        //#print("index " + str(i) + " " + hex(myreceivebuffer[62+i]))
+                        udpPayload[i] = myreceivebuffer[62+i];
+                    }
+                    evaluateUdpPayload();
+                }                      
+            }
+            if (nextheader == 0x06) { // # it is an TCP frame
+                // evaluateTcpPacket();
+            }
+  }
+}
 
 void ipv6_initiateSdpRequest(void) {
             //# We are the car. We want to find out the IPv6 address of the charger. We
@@ -65,7 +139,7 @@ void ipv6_packRequestIntoUdp(void) {
         for (i=0; i<v2gtpFrameLen; i++) {
             UdpRequest[8+i] = v2gtpFrame[i];
         }
-        //#showAsHex(self.UdpRequest, "UDP request ")
+        //#showAsHex(UdpRequest, "UDP request ")
         //broadcastIPv6 = [ 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         //# The content of buffer is ready. We can calculate the checksum. see https://en.wikipedia.org/wiki/User_Datagram_Protocol
         checksum = udpChecksum_calculateUdpChecksumForIPv6(UdpRequest, UdpRequestLen, EvccIp, broadcastIPv6); 
@@ -103,7 +177,7 @@ void ipv6_packRequestIntoIp(void) {
         for (i=0; i<UdpRequestLen; i++) {
             IpRequest[40+i] = UdpRequest[i];
         }            
-        //#showAsHex(self.IpRequest, "IpRequest ")
+        //#showAsHex(IpRequest, "IpRequest ")
         ipv6_packRequestIntoEthernet();
 }
 

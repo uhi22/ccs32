@@ -57,6 +57,7 @@ uint8_t mytransmitbuffer[MY_ETH_TRANSMIT_BUFFER_LEN];
 uint8_t mytransmitbufferLen=0; /* The number of used bytes in the ethernet transmit buffer */
 #define MY_ETH_RECEIVE_BUFFER_LEN 200
 uint8_t myreceivebuffer[MY_ETH_RECEIVE_BUFFER_LEN];
+uint16_t myreceivebufferLen;
 uint8_t myMAC[6] = {0xDC, 0x0e, 0xa1, 0x11, 0x67, 0x09}; /* just a default MAC address. Will be overwritten by the PHY MAC. */
 
 /* based on template in WiFiGeneric.cpp, function _arduino_event_cb() */
@@ -78,16 +79,16 @@ esp_err_t myEthernetReceiveCallback(esp_eth_handle_t hdl, uint8_t *buffer, uint3
   /* We received an ethernet package. Determine its type, and dispatch it to the related handler. */
   uint16_t etherType = getEtherType(buffer);
   //Serial.println("EtherType" + String(etherType, HEX) + " size " + String(length));   
+  uint32_t L;
+  L=length;
+  if (L>=MY_ETH_RECEIVE_BUFFER_LEN) L=MY_ETH_RECEIVE_BUFFER_LEN;
+  memcpy(myreceivebuffer, buffer, L); 
+  myreceivebufferLen=L;
   if (etherType == 0x88E1) { /* it is a HomePlug message */
-    //Serial.println("Its a HomePlug message.");    
-    uint32_t L;
-    L=length;
-    if (L>=MY_ETH_RECEIVE_BUFFER_LEN) L=MY_ETH_RECEIVE_BUFFER_LEN;
-    memcpy(myreceivebuffer, buffer, L); 
+    //Serial.println("Its a HomePlug message.");
     evaluateReceivedHomeplugPacket();
-  }
-  if (etherType == 0x86dd) { /* it is an IPv6 frame */
-      //self.ipv6.evaluateReceivedPacket(pkt)
+  } else if (etherType == 0x86dd) { /* it is an IPv6 frame */
+      ipv6_evaluateReceivedPacket();
   }
   return ESP_OK;       
 }

@@ -59,9 +59,12 @@ const uint8_t MAC_BROADCAST[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 char strVersion[200];
 uint8_t verLen;
 uint8_t sourceMac[6];
+uint8_t localModemMac[6];
 uint8_t evseMac[6];
 uint8_t NID[7];
 uint8_t NMK[16];
+uint8_t localModemCurrentKey[16];
+uint8_t localModemFound;
 uint8_t numberOfSoftwareVersionResponses;
 uint8_t numberOfFoundModems;
 uint8_t pevSequenceState;
@@ -453,6 +456,68 @@ void composeGetKey(void) {
     mytransmitbuffer[35]=0x00; // # 17 PMN Protocol message number
 }
 
+void evaluateGetKeyCnf(void) {
+	uint8_t i;
+	uint8_t result;
+	String strMac;
+	String strResult;
+	String strNID;
+	String s;
+    addToTrace("received GET_KEY.CNF");
+    numberOfFoundModems += 1;
+    for (i=0; i<6; i++) {
+        sourceMac[i] = myreceivebuffer[6+i];
+    }
+    strMac = String(sourceMac[0], HEX) + ":" + String(sourceMac[1], HEX) + ":" + String(sourceMac[2], HEX) + ":" 
+     + String(sourceMac[3], HEX) + ":" + String(sourceMac[4], HEX) + ":" + String(sourceMac[5], HEX);
+    result = myreceivebuffer[19]; // # 0 in case of success
+    if (result==0) {
+            strResult="(OK)";
+    } else {
+            strResult="(NOK)";
+	  }
+    addToTrace("Modem #" + String(numberOfFoundModems) + " has " + strMac + " and result code is " + String(result) + strResult);
+	  if (numberOfFoundModems>1) {
+		  addToTrace("Info: NOK is normal for remote modems.");
+	  }
+            
+    //    # We observed the following cases:
+    //    # (A) Result=1 (NOK), NID all 00, key all 00: We requested the key with the wrong NID.
+    //    # (B) Result=0 (OK), NID all 00, key non-zero: We used the correct NID for the request.
+    //    #            It is the local TPlink adaptor. A fresh started non-coordinator, like the PEV side.
+    //    # (C) Result=0 (OK), NID non-zero, key non-zero: We used the correct NID for the request.
+    //    #            It is the local TPlink adaptor.
+    //    # (D) Result=1 (NOK), NID non-zero, key all 00: It was a remote device. They are rejecting the GET_KEY.
+    if (result==0) {
+      //# The ok case is for sure the local modem. Let's store its data.
+      memcpy(localModemMac, sourceMac, 6);
+      s="";
+			for (i=0; i<16; i++) { // NMK has 16 bytes
+                localModemCurrentKey[i] = myreceivebuffer[41+i];
+                s=s+String(localModemCurrentKey[i], HEX)+ " ";
+			}
+      addToTrace("The local modem has key " + s);
+      //if (localModemCurrentKey == bytearray(NMKdevelopment)):
+      //    addToTrace("This is the developer NMK.")
+      //    isDeveloperLocalKey = 1
+      //else:
+      //    addToTrace("This is NOT the developer NMK.")            
+      localModemFound=1;
+	  }
+    strNID = "";
+    //    # The getkey response contains the Network ID (NID), even if the request was rejected. We store the NID,
+    //    # to have it available for the next request. Use case: A fresh started, unconnected non-Coordinator
+    //    # modem has the default-NID all 00. On the other hand, a fresh started coordinator has the
+    //    # NID which he was configured before. We want to be able to cover both cases. That's why we
+    //    # ask GET_KEY, it will tell the NID (even if response code is 1 (NOK), and we will use this
+    //    # received NID for the next request. This will be ansered positive (for the local modem).
+    for (i=0; i<7; i++) { // # NID has 7 bytes
+        NID[i] = myreceivebuffer[29+i];
+        strNID=strNID+String(NID[i], HEX)+ " ";
+    }            
+    addToTrace("From GetKeyCnf, got network ID (NID) " + strNID);
+}
+
 void sendTestFrame(void) {
   composeGetSwReq();
   myEthTransmit();
@@ -727,7 +792,7 @@ void runPevSequencer(void) {
 
 void evaluateReceivedHomeplugPacket(void) {
   switch (getManagementMessageType()) {
-    //case CM_GET_KEY + MMTYPE_CNF:  evaluateGetKeyCnf(); break;   
+    case CM_GET_KEY + MMTYPE_CNF:  evaluateGetKeyCnf(); break;   
     //case CM_SLAC_MATCH + MMTYPE_REQ:     evaluateSlacMatchReq(); break;
     case CM_SLAC_MATCH + MMTYPE_CNF:     evaluateSlacMatchCnf(); break;
     //case CM_SLAC_PARAM + MMTYPE_REQ:     evaluateSlacParamReq()
