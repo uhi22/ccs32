@@ -1,6 +1,15 @@
 /* HomePlug Ethernet communication with WT32-ETH01 */
 /* This is the main Arduino file of the project. */
 
+#include "src/exi/projectExiConnector.h"
+#if defined(__cplusplus)
+extern "C"
+{
+#endif
+void addToTrace_chararray(char *s);
+#if defined(__cplusplus)
+}
+#endif
 
 /* some snippets from ETH.h */
 #include "esp_system.h"
@@ -223,12 +232,18 @@ void task1s(void) {
 }
 
 /**********************************************************/
+void addToTrace_chararray(char *s) {
+  log_v("%s", s);  
+}
 
 void setup() {
   // Set pin mode
   pinMode(LED,OUTPUT);
   Serial.begin(115200);
   Serial.println("Started.");
+  log_v("Starting exi test...");
+  Serial.println(projectExiConnector_test(17));
+  log_v("Exi test finished.");
   if (initEth()) {
     log_v("Ethernet initialized");
   } else {

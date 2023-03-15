@@ -29,11 +29,6 @@ Approach for making an own ethernet handler software: Pick the interesting parts
 
 - ESP_IDF_VERSION_MAJOR > 3 is true.
 
-How to print an info to serial line inside a library, e.g. in ETH.c?
-log_printf(ARDUHAL_LOG_FORMAT(I, "This is also an info."));
-shows a log information including the time since boot, the file name, line number, function name:
-[    11][I][ETH.cpp:325] begin(): This is also an info.
-
 Where is the function esp_eth_phy_new_lan87xx() implemented?
 In the lib libesp_eth.a. No source code found for this.
 
@@ -44,12 +39,32 @@ needs to be registers with esp_eth_update_input_path().
 
 How can the application transmit an Ethernet frame? Answer: By calling esp_eth_transmit() and giving the buffer and length as parameters.
 
-How to know the time since startup? esp_timer_get_time() Get time in microseconds since boot
-
 Why does the board not receive all frames of the Ethernet? Answer: There seems to be a filter,
 which makes sure, that only messages are forwarded to the application, which are either
 broadcasts, or they match the own MAC. The own MAC is the one which is available via
 esp_eth_ioctl(eth_handle, ETH_CMD_G_MAC_ADDR, myMAC). Maybe there is the possibility to 
 receive all frames, when we switch to promiscuous mode by esp_eth_ioctl(..., ETH_CMD_S_PROMISCUOUS, ...), this is not yet tested.
 
+# Logging
+
+How to print an info to serial line inside a library, e.g. in ETH.c?
+log_printf(ARDUHAL_LOG_FORMAT(I, "This is also an info."));
+shows a log information including the time since boot, the file name, line number, function name:
+[    11][I][ETH.cpp:325] begin(): This is also an info.
+
+# Time measurement
+How to know the time since startup? esp_timer_get_time() Get time in microseconds since boot
+
+# Project structuring / modularization
+
+## Multiple .ino Files
+It is possible to have multiple .ino files in one sketch. The IDE copies all .ino files into one single .cpp file
+before compiling. The first .ino is the "main" .ino, which has the same name as the sketch folder. The other .ino
+are following in alphabetical order. This means: No #include is necessary, because from compilers point of view all .ino
+are just one single .cpp in the end.
+
+## Subfolders
+The Arduino IDE will compile and link also files which are placed in the sketch directory in a folder "src", also
+recursively.
+See https://forum.arduino.cc/t/subfolders-in-sketch-folder/564852
 

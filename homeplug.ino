@@ -82,6 +82,7 @@ void addToTrace(String strTrace) {
   log_v("%s", strTrace.c_str());  
 }
 
+
 /* stubs for later implementation */
 #define addressManager_setEvseMac(x)
 #define showStatus(x, y)
