@@ -35,8 +35,8 @@ uint16_t calculateUdpAndTcpChecksumForIPv6(uint8_t *UdpOrTcpframe, uint16_t UdpO
 	}
     pseudoHeader[32] = 0; // # high byte of the FOUR byte length is always 0
     pseudoHeader[33] = 0; // # 2nd byte of the FOUR byte length is always 0
-    pseudoHeader[34] = udplen >> 8; // # 3rd
-    pseudoHeader[35] = udplen & 0xFF; // # low byte of the FOUR byte length
+    pseudoHeader[34] = UdpOrTcpframeLen >> 8; // # 3rd
+    pseudoHeader[35] = UdpOrTcpframeLen & 0xFF; // # low byte of the FOUR byte length
     pseudoHeader[36] = 0; // # 3 padding bytes with 0x00
     pseudoHeader[37] = 0;
     pseudoHeader[38] = 0;
