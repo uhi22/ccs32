@@ -84,11 +84,13 @@ void addToTrace(String strTrace) {
 
 
 /* stubs for later implementation */
-#define addressManager_setEvseMac(x)
 #define showStatus(x, y)
 //#define ipv6_initiateSdpRequest()
-#define callbackReadyForTcp(x)
-#define addressManagerHasSeccIp() 0
+
+
+void callbackReadyForTcp(uint8_t x) {
+  tcp_connect();
+}
 
 /* Extracting the EtherType from a received message. */
 uint16_t getEtherType(uint8_t *messagebufferbytearray) {
@@ -262,7 +264,6 @@ void evaluateAttenCharInd(void) {
             for (i=0; i<6; i++) {
                 evseMac[i] = myreceivebuffer[6+i]; // # source MAC starts at offset 6
             }
-            addressManager_setEvseMac(evseMac);
             AttenCharIndNumberOfSounds = myreceivebuffer[69];
             //addToTrace("[PEVSLAC] number of sounds reported by the EVSE (should be 10): " + str(AttenCharIndNumberOfSounds)) 
             composeAttenCharRsp();
@@ -756,11 +757,10 @@ void runPevSequencer(void) {
             return;
         }        
         if (pevSequenceState==STATE_SDP) { // SDP request transmission and waiting for SDP response.
-            if (addressManagerHasSeccIp()) {
+            if (isSDPDone) {
                 // we received an SDP response, and can start the high-level communication
                 showStatus("SDP finished", "pevState");
                 addToTrace("[PEVSLAC] Now we know the chargers IP.");
-                isSDPDone = 1;
                 callbackReadyForTcp(1);
                 // Continue with checking the connection, for the case somebody pulls the plug.
                 pevSequenceDelayCycles = 300; // e.g. 10s

@@ -4,12 +4,16 @@ const uint8_t broadcastIPv6[16] = { 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /* our link-local IPv6 address. Todo: do we need to calculate this from the MAC? Or just use a "random"? */
 /* For the moment, just use the address from the Win10 notebook, and change the last byte from 0x0e to 0x1e. */
 const uint8_t EvccIp[16] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0xc6, 0x90, 0x83, 0xf3, 0xfb, 0xcb, 0x98, 0x1e};
-
+uint8_t SeccIp[16]; /* the IP address of the charger */
+uint16_t seccTcpPort; /* the port number of the charger */
 uint8_t sourceIp[16];
+uint16_t evccPort=59218; /* some "random port" */
 uint16_t sourceport;
 uint16_t destinationport;
 uint16_t udplen;
 uint16_t udpsum;
+
+#define NEXT_UDP 0x11 /* next protocol is UDP */
 
 #define UDP_PAYLOAD_LEN 100
 uint8_t udpPayload[UDP_PAYLOAD_LEN];
@@ -30,6 +34,8 @@ uint8_t IpRequest[IP_REQUEST_LEN];
 
 void evaluateUdpPayload(void) {
   uint16_t v2gptPayloadType;
+  uint32_t v2gptPayloadLen;
+  uint8_t i;
   if ((destinationport == 15118) or (sourceport == 15118)) { // port for the SECC
     if ((udpPayload[0]==0x01) and (udpPayload[1]==0xFE)) { //# protocol version 1 and inverted
                 //# it is a V2GTP message                
@@ -41,19 +47,21 @@ void evaluateUdpPayload(void) {
                 if (v2gptPayloadType == 0x9001) {
                     //# it is a SDP response from the charger to the car
                     addToTrace("it is a SDP response from the charger to the car");
-#ifdef NIX                    
-                        v2gptPayloadLen = udpPayload[4] * 256 ** 3 + udpPayload[5] * 256 ** 2 + udpPayload[6] * 256 + udpPayload[7]
-                        if (v2gptPayloadLen == 20):
+                    v2gptPayloadLen = (((uint32_t)udpPayload[4])<<24)  + 
+                                      (((uint32_t)udpPayload[5])<<16) +
+                                      (((uint32_t)udpPayload[6])<<8) +
+                                      udpPayload[7];
+                    if (v2gptPayloadLen == 20) {
                             //# 20 is the only valid length for a SDP response.
-                            print("[PEV] Received SDP response")
+                            addToTrace("[PEV] Received SDP response");
                             //# at byte 8 of the UDP payload starts the IPv6 address of the charger.
-                            for i in range(0, 16):
-                                SeccIp[i] = udpPayload[8+i] # 16 bytes IP address of the charger
+                            for (i=0; i<16; i++) {
+                                SeccIp[i] = udpPayload[8+i]; // 16 bytes IP address of the charger
+                            }
                             //# Extract the TCP port, on which the charger will listen:
-                            seccTcpPort = (udpPayload[8+16]*256) + udpPayload[8+16+1]
-                            addressManager.setSeccIp(SeccIp)
-                            addressManager.setSeccTcpPort(seccTcpPort)
-                  #endif                            
+                            seccTcpPort = (((uint16_t)(udpPayload[8+16]))<<8) + udpPayload[8+16+1];
+                            isSDPDone = 1;
+                    }
                 } else {    
                   addToTrace("v2gptPayloadType " + String(v2gptPayloadType, HEX) + " not supported");
                 }                  
@@ -124,9 +132,8 @@ void ipv6_packRequestIntoUdp(void) {
                                            //           #   2 bytes destination port
                                            //           #   2 bytes length (incl checksum)
                                            //           #   2 bytes checksum
-        #define pevPort 50032 /* "random" port. */
-        UdpRequest[0] = pevPort >> 8;
-        UdpRequest[1] = pevPort  & 0xFF;
+        UdpRequest[0] = evccPort >> 8;
+        UdpRequest[1] = evccPort  & 0xFF;
         UdpRequest[2] = 15118 >> 8;
         UdpRequest[3] = 15118 & 0xFF;
         
@@ -142,7 +149,7 @@ void ipv6_packRequestIntoUdp(void) {
         //#showAsHex(UdpRequest, "UDP request ")
         //broadcastIPv6 = [ 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         //# The content of buffer is ready. We can calculate the checksum. see https://en.wikipedia.org/wiki/User_Datagram_Protocol
-        checksum = udpChecksum_calculateUdpChecksumForIPv6(UdpRequest, UdpRequestLen, EvccIp, broadcastIPv6); 
+        checksum = calculateUdpAndTcpChecksumForIPv6(UdpRequest, UdpRequestLen, EvccIp, broadcastIPv6, NEXT_UDP); 
         UdpRequest[6] = checksum >> 8;
         UdpRequest[7] = checksum & 0xFF;        
         ipv6_packRequestIntoIp();
@@ -167,7 +174,6 @@ void ipv6_packRequestIntoIp(void) {
         IpRequest[6] = 0x11; // next level protocol, 0x11 = UDP in this case
         IpRequest[7] = 0x0A; // hop limit
         // We are the PEV. So the EvccIp is our own link-local IP address.
-        //EvccIp = addressManager_getLinkLocalIpv6Address("bytearray");
         for (i=0; i<16; i++) {
             IpRequest[8+i] = EvccIp[i]; // source IP address
         }            
