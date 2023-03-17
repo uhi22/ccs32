@@ -24,7 +24,16 @@ uint8_t tcpState = TCP_STATE_CLOSED;
 uint32_t TcpSeqNr=200; /* a "random" start sequence number */
 uint32_t TcpAckNr;
 
-
+void evaluateTcpPacket(void) {
+  uint8_t flags;
+  /* todo: check the ports and IP addresses */
+  flags = myreceivebuffer[67];
+  if ((flags == TCP_FLAG_SYN+TCP_FLAG_ACK) && (tcpState == TCP_STATE_SYN_SENT)) {
+    tcpState = TCP_STATE_ESTABLISHED;
+    /* todo: send the ACK */
+    addToTrace("[TCP] connected.");
+  }
+}
 
 void tcp_connect(void) {
     uint8_t i;

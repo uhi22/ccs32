@@ -14,6 +14,7 @@ uint16_t udplen;
 uint16_t udpsum;
 
 #define NEXT_UDP 0x11 /* next protocol is UDP */
+#define NEXT_ICMPv6 0x3a /* next protocol is ICMPv6 */
 
 #define UDP_PAYLOAD_LEN 100
 uint8_t udpPayload[UDP_PAYLOAD_LEN];
@@ -72,18 +73,19 @@ void evaluateUdpPayload(void) {
 void ipv6_evaluateReceivedPacket(void) {
   //# The evaluation function for received ipv6 packages.
   uint16_t nextheader; 
-  uint16_t i; 
+  uint16_t i;
+  uint8_t icmpv6type; 
   if (myreceivebufferLen>60) {
-            //# extract the source ipv6 address
-            memcpy(sourceIp, &myreceivebuffer[22], 16);
-            nextheader = myreceivebuffer[20];
-            if (nextheader == 0x11) { //  it is an UDP frame
-                sourceport = myreceivebuffer[54] * 256 + myreceivebuffer[55];
-                destinationport = myreceivebuffer[56] * 256 + myreceivebuffer[57];
-                udplen = myreceivebuffer[58] * 256 + myreceivebuffer[59];
-                udpsum = myreceivebuffer[60] * 256 + myreceivebuffer[61];
-                //# udplen is including 8 bytes header at the begin
-                if (udplen>8) {
+      //# extract the source ipv6 address
+      memcpy(sourceIp, &myreceivebuffer[22], 16);
+      nextheader = myreceivebuffer[20];
+      if (nextheader == 0x11) { //  it is an UDP frame
+          sourceport = myreceivebuffer[54] * 256 + myreceivebuffer[55];
+          destinationport = myreceivebuffer[56] * 256 + myreceivebuffer[57];
+          udplen = myreceivebuffer[58] * 256 + myreceivebuffer[59];
+          udpsum = myreceivebuffer[60] * 256 + myreceivebuffer[61];
+          //# udplen is including 8 bytes header at the begin
+          if (udplen>8) {
                     udpPayloadLen = udplen-8;
                     //# print("udplen=" + str(udplen))
                     //# print("myreceivebuffer len=" + str(len(myreceivebuffer)))
@@ -92,11 +94,20 @@ void ipv6_evaluateReceivedPacket(void) {
                         udpPayload[i] = myreceivebuffer[62+i];
                     }
                     evaluateUdpPayload();
-                }                      
-            }
-            if (nextheader == 0x06) { // # it is an TCP frame
-                // evaluateTcpPacket();
-            }
+          }                      
+      }
+      if (nextheader == 0x06) { // # it is an TCP frame
+        //addToTrace("[PEV] TCP received");
+        evaluateTcpPacket();
+      }
+			if (nextheader == NEXT_ICMPv6) { // it is an ICMPv6 (NeighborSolicitation etc) frame
+				addToTrace("[PEV] ICMPv6 received");
+				icmpv6type = myreceivebuffer[54];
+				if (icmpv6type == 0x87) { /* Neighbor Solicitation */
+					addToTrace("[PEV] Neighbor Solicitation received");
+					evaluateNeighborSolicitation();
+				}
+			}
   }
 }
 
@@ -208,5 +219,64 @@ void ipv6_packRequestIntoEthernet(void) {
             mytransmitbuffer[14+i] = IpRequest[i];
         }
         myEthTransmit();
+}
+
+void evaluateNeighborSolicitation(void) {
+	uint16_t checksum;
+	uint8_t i;
+  /* The neighbor discovery protocol is used by the charger to find out the
+    relation between MAC and IP. */
+
+	/* We could extract the necessary information from the NeighborSolicitation,
+     means the chargers IP and MAC address. But we have these addresses already
+     from the SDP response. So we can ignore the content of the NeighborSolicitation,
+     and directly compose the response. */
+  
+  /* send a NeighborAdvertisement as response. */
+	// destination MAC = charger MAC
+    fillDestinationMac(evseMac); // bytes 6 to 11 are the source MAC	
+	// source MAC = my MAC
+    fillSourceMac(myMAC); // bytes 6 to 11 are the source MAC
+	// Ethertype 86DD
+    mytransmitbuffer[12] = 0x86; // # 86dd is IPv6
+    mytransmitbuffer[13] = 0xdd;
+    mytransmitbuffer[14] = 0x60; // # traffic class, flow
+    mytransmitbuffer[15] = 0; 
+    mytransmitbuffer[16] = 0;
+    mytransmitbuffer[17] = 0;
+	// plen
+	#define ICMP_LEN 32 /* bytes in the ICMPv6 */
+    mytransmitbuffer[18] = 0;
+    mytransmitbuffer[19] = ICMP_LEN;
+	mytransmitbuffer[20] = NEXT_ICMPv6;
+	mytransmitbuffer[21] = 0xff;
+    // We are the PEV. So the EvccIp is our own link-local IP address.
+    for (i=0; i<16; i++) {
+        mytransmitbuffer[22+i] = EvccIp[i]; // source IP address
+    }            
+    for (i=0; i<16; i++) {
+        mytransmitbuffer[38+i] = SeccIp[i]; // destination IP address
+    }
+	/* here starts the ICMPv6 */
+	mytransmitbuffer[54] = 0x88; /* Neighbor Advertisement */
+	mytransmitbuffer[55] = 0;	
+	mytransmitbuffer[56] = 0; /* checksum (filled later) */	
+	mytransmitbuffer[57] = 0;	
+
+	/* Flags */
+	mytransmitbuffer[58] = 0x60; /* Solicited, override */	
+	mytransmitbuffer[59] = 0;
+	mytransmitbuffer[60] = 0;
+	mytransmitbuffer[61] = 0;
+	
+	memcpy(&mytransmitbuffer[62], EvccIp, 16); /* The own IP address */
+	mytransmitbuffer[78] = 2; /* Type 2, Link Layer Address */
+	mytransmitbuffer[79] = 1; /* Length 1, means 8 byte (?) */
+	memcpy(&mytransmitbuffer[80], myMAC, 6); /* The own Link Layer (MAC) address */
+	
+	checksum = calculateUdpAndTcpChecksumForIPv6(&mytransmitbuffer[54], ICMP_LEN, EvccIp, SeccIp, NEXT_ICMPv6);
+	mytransmitbuffer[56] = checksum >> 8;
+    mytransmitbuffer[57] = checksum & 0xFF;
+    myEthTransmit();
 }
 

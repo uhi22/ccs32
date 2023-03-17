@@ -68,3 +68,36 @@ The Arduino IDE will compile and link also files which are placed in the sketch 
 recursively.
 See https://forum.arduino.cc/t/subfolders-in-sketch-folder/564852
 
+# Protocol Investigations
+
+## Neighbor Discovery
+
+When trying to TCP-connect to the Win10 notebook without Neighbor Discovery before, the notebook sends NeighSol, and does
+not response on the TCP. It looks like, that the Neighbor Discovery is a precondition for TCP.
+https://en.wikipedia.org/wiki/Neighbor_Discovery_Protocol
+
+How the Neighbor Discovery works with other combinations of chargers?
+
+         PEV Win10       EVSE SuperCharger:
+  98.41s   --> SDP.Req --> 
+  98.42s   <-- NeighSol <--
+  98.42s   --> NeighAdv -->
+  98.43s   <-- SDP.Res <-- 
+  
+         PEV Win10       EVSE alpitronics:
+  24.93s   --> SDP.Req --> 
+  24.94s   <-- NeighSol <--
+  24.94s   --> NeighAdv -->
+  24.94s   <-- SDP.Res <-- 
+  
+         PEV WT32       EVSE Win10
+           --> SDP.Req --> 
+           <-- SDP.Res <-- 
+           --> TCP.SYN --> 
+           <-- NeighSol <--
+           <-- NeighSol <--
+           <-- NeighSol <--		   
+           (reaction NeighAdv not yet implemented)
+		 
+  
+  
