@@ -139,4 +139,6 @@ Fifth message (which is the confirmation of the first data message):
  - SEQNR = last received ACKNR = A+1
  - ACKNR =  last received SEQNR + lengthOfData
  
-  
+## EXI
+ In state WaitForSessionSetupResponse, received:
+[ 38268][V][ccs32.ino:43] addToTrace(): (31 bytes)= 1 fe 80 1 0 0 0 17 80 9a 2 0 40 80 c1 1 41 81 c2 11 e0 20 1d 69 68 c0 c0 c0 c0 c0 80 
