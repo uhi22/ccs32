@@ -8,15 +8,17 @@ side of a CCS charging system for electrical cars.
 The basis of this port is the python-variant in
 https://github.com/uhi22/pyPLC
 
-## Benefits of this solution
-- much faster startup time (2s) compared to the Raspberry or Notebook
-- much less current consumption compared to the Raspberry or Notebook
-- more compact design
+## News / Change history / functional status
 
-## Drawbacks
-- no log file for offline analysis
-
-## Change history / functional status
+### 2023-03-19 PEV state machine until Charging Loop
+With simulated EVSE (Win10, pyPlc) on the opposite end, the WT32-ETH01 makes the SLAC, SDP, NeighborDiscovery, TCP
+and the charging state machine. It runs until the charging loop.
+Unfortunately, the controller is not really stable. Several ethernet issues are
+visible:
+- Sometimes the eth raises `ETHERNET_EVENT_DISCONNECTED`.
+- Sporadically we get `emac_esp32_transmit(229): insufficient TX buffer size`
+- Often `esp.emac: no mem for receive buffer`
+- Sporadically a complete crash: `panic'ed (Unhandled debug exception). Debug exception reason: Stack canary watchpoint triggered (emac_rx)`
 
 ### 2023-03-11 Reading the HomePlug software versions works
 Initial Arduino sketch, which is able to send and receive HomePlug
@@ -24,6 +26,15 @@ messages on the Ethernet port of the WT-ETH01. Debug console is
 the Arduino IDE, via the RX0/TX0, which are also used for programming.
 As test, the sketch sends GetSoftwareVersion requests and shows
 the related responses on the debug console.
+
+
+## Benefits of this solution
+- much faster startup time (2s) compared to the Raspberry or Notebook
+- much less current consumption compared to the Raspberry or Notebook
+- more compact design
+
+## Drawbacks
+- no log file for offline analysis
 
 ## Todos
 - porting of all required homeplug stuff from python to C.
