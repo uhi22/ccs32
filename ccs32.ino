@@ -1,6 +1,8 @@
 /* HomePlug Ethernet communication with WT32-ETH01 */
 /* This is the main Arduino file of the project. */
 
+#include "ccs32_globals.h"
+
 #include "src/exi/projectExiConnector.h"
 #if defined(__cplusplus)
 extern "C"
@@ -44,6 +46,7 @@ typedef enum { ETH_CLOCK_GPIO0_IN, ETH_CLOCK_GPIO0_OUT, ETH_CLOCK_GPIO16_OUT, ET
 
 static eth_clock_mode_t eth_clock_mode = ETH_CLK_MODE;
 esp_eth_handle_t eth_handle;
+uint8_t isEthLinkUp;
 
 /* The logging macros */
 #undef log_v
@@ -61,29 +64,36 @@ uint32_t lastTime30ms;
 uint32_t nCycles30ms;
 uint8_t ledState;
 uint32_t nTotalEthReceiveBytes; /* total number of bytes which has been received from the ethernet port */
-#define MY_ETH_TRANSMIT_BUFFER_LEN 200
+uint32_t nTotalTransmittedBytes;
 uint8_t mytransmitbuffer[MY_ETH_TRANSMIT_BUFFER_LEN];
 uint8_t mytransmitbufferLen=0; /* The number of used bytes in the ethernet transmit buffer */
-#define MY_ETH_RECEIVE_BUFFER_LEN 200
 uint8_t myreceivebuffer[MY_ETH_RECEIVE_BUFFER_LEN];
 uint16_t myreceivebufferLen;
 uint8_t myMAC[6] = {0xDC, 0x0e, 0xa1, 0x11, 0x67, 0x09}; /* just a default MAC address. Will be overwritten by the PHY MAC. */
+uint8_t nMaxInMyEthernetReceiveCallback, nInMyEthernetReceiveCallback;
+uint16_t nTcpPacketsReceived;
 
 /* based on template in WiFiGeneric.cpp, function _arduino_event_cb() */
 void myEthernetEventCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
 	if (event_base == ETH_EVENT && event_id == ETHERNET_EVENT_CONNECTED) {
 		log_v("Ethernet Link Up");
+    isEthLinkUp = 1; 
 	} else if (event_base == ETH_EVENT && event_id == ETHERNET_EVENT_DISCONNECTED) {
 		log_v("Ethernet Link Down");
+    isEthLinkUp = 0; 
 	} else if (event_base == ETH_EVENT && event_id == ETHERNET_EVENT_START) {
 		log_v("Ethernet Started");
+    isEthLinkUp = 0; 
 	} else if (event_base == ETH_EVENT && event_id == ETHERNET_EVENT_STOP) {
 		log_v("Ethernet Stopped");
+    isEthLinkUp = 0; 
   }    
 }
 
 /* The receive function, which is called by the esp32-ethernet-driver. */
 esp_err_t myEthernetReceiveCallback(esp_eth_handle_t hdl, uint8_t *buffer, uint32_t length, void *priv) {
+  nInMyEthernetReceiveCallback++;
+  if (nInMyEthernetReceiveCallback>nMaxInMyEthernetReceiveCallback) nMaxInMyEthernetReceiveCallback = nInMyEthernetReceiveCallback;
   nTotalEthReceiveBytes+=length;
   /* We received an ethernet package. Determine its type, and dispatch it to the related handler. */
   uint16_t etherType = getEtherType(buffer);
@@ -99,11 +109,13 @@ esp_err_t myEthernetReceiveCallback(esp_eth_handle_t hdl, uint8_t *buffer, uint3
   } else if (etherType == 0x86dd) { /* it is an IPv6 frame */
       ipv6_evaluateReceivedPacket();
   }
+  nInMyEthernetReceiveCallback--;
   return ESP_OK;       
 }
 
 /* The Ethernet transmit function. */
 void myEthTransmit(void) {
+  nTotalTransmittedBytes += mytransmitbufferLen;
   (void)esp_eth_transmit(eth_handle, mytransmitbuffer, mytransmitbufferLen);
 }
 
@@ -117,7 +129,9 @@ bool initEth(void) {
   int mdc=ETH_PHY_MDC;
   int mdio=ETH_PHY_MDIO;
 
-  //log_v("This is initEth.");  
+  #ifdef VERBOSE_INIT_ETH
+    log_v("This is initEth.");
+  #endif  
 	//log_printf(ARDUHAL_LOG_FORMAT(I, "phy_addr %d"), phy_addr);
 	//log_printf(ARDUHAL_LOG_FORMAT(I, "power %d"), power);
 	//log_printf(ARDUHAL_LOG_FORMAT(I, "mdc %d"), mdc);
@@ -135,37 +149,51 @@ bool initEth(void) {
   mac_config.smi_mdio_gpio_num = mdio;
   mac_config.sw_reset_timeout_ms = 1000;
     
-  log_v("calling esp_eth_mac_new_esp32");  
+  #ifdef VERBOSE_INIT_ETH
+    log_v("calling esp_eth_mac_new_esp32");
+  #endif      
   eth_mac = esp_eth_mac_new_esp32(&mac_config);
   if(eth_mac == NULL){
     log_e("esp_eth_mac_new_esp32 failed");
     return false;
   }
-  //log_v("done");
-    
+  #ifdef VERBOSE_INIT_ETH
+    log_v("done");
+  #endif  
   eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
   phy_config.phy_addr = phy_addr;
   phy_config.reset_gpio_num = power;
   esp_eth_phy_t *eth_phy = NULL;
     
-  log_v("calling esp_eth_phy_new_lan8720");  
+  #ifdef VERBOSE_INIT_ETH    
+    log_v("calling esp_eth_phy_new_lan8720");
+  #endif      
   eth_phy = esp_eth_phy_new_lan8720(&phy_config);
   if(eth_phy == NULL){
     log_e("esp_eth_phy_new failed");
     return false;
   }
-  //log_v("done");
-
+  #ifdef VERBOSE_INIT_ETH    
+    log_v("done");
+  #endif
+  
   eth_handle = NULL;
   esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(eth_mac, eth_phy);
-  log_v("Calling esp_eth_driver_install.");    
+  #ifdef VERBOSE_INIT_ETH
+    log_v("Calling esp_eth_driver_install.");
+  #endif
+  
   if(esp_eth_driver_install(&eth_config, &eth_handle) != ESP_OK || eth_handle == NULL){
     log_e("esp_eth_driver_install failed");
     return false;
   }
-  //log_v("done");
+  #ifdef VERBOSE_INIT_ETH
+    log_v("done");
+  #endif
 
-  log_v("creating event loop");
+  #ifdef VERBOSE_INIT_ETH    
+    log_v("creating event loop");
+  #endif
   esp_err_t err = esp_event_loop_create_default();
   if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
   	log_e("esp_event_loop_create_default failed!");
@@ -174,7 +202,9 @@ bool initEth(void) {
   //log_v("done");
 
   /* registering the event callback from the ethernet driver */
-  log_v("registering the event callback from the ethernet driver.");
+  #ifdef VERBOSE_INIT_ETH
+    log_v("registering the event callback from the ethernet driver.");
+  #endif
   rc = esp_event_handler_instance_register(ETH_EVENT, ESP_EVENT_ANY_ID, &myEthernetEventCallback, NULL, NULL);
   //log_v("returned %d", rc);    
   if(rc) {
@@ -183,7 +213,9 @@ bool initEth(void) {
   }
   //log_v("done");
 
-  log_v("registering the receive callback from the ethernet driver.");
+  #ifdef VERBOSE_INIT_ETH    
+    log_v("registering the receive callback from the ethernet driver.");
+  #endif
   rc = esp_eth_update_input_path(eth_handle, &myEthernetReceiveCallback, NULL);
   //log_v("returned %d", rc);    
   if(rc) {
@@ -193,7 +225,9 @@ bool initEth(void) {
   //log_v("done");
 
   /* starting the ethernet driver in standalone mode, means without TCP/IP etc. */
-  log_v("starting the ethernet driver in standalone mode.");    
+  #ifdef VERBOSE_INIT_ETH
+    log_v("starting the ethernet driver in standalone mode.");
+  #endif  
   if(esp_eth_start(eth_handle) != ESP_OK){
     log_e("esp_eth_start failed");
     return false;
@@ -214,20 +248,26 @@ bool initEth(void) {
 
 void task30ms(void) {
 	nCycles30ms++;
-	runPevSequencer();
+	runSlacSequencer();
+  tcp_Mainfunction();
+  pevStateMachine_Mainfunction();
 }
 
 void task1s(void) {
   if (ledState==0) {
     digitalWrite(LED,HIGH);
     //Serial.println("LED on");
-	ledState = 1;
+	  ledState = 1;
   } else {
     digitalWrite(LED,LOW);
     //Serial.println("LED off");
-	ledState = 0;
+	  ledState = 0;    
   }
-  log_v("nTotalEthReceiveBytes=%ld, nCycles30ms=%ld", nTotalEthReceiveBytes, nCycles30ms);
+  //log_v("nTotalEthReceiveBytes=%ld, nCycles30ms=%ld", nTotalEthReceiveBytes, nCycles30ms);
+  log_v("nTotalEthReceiveBytes=%ld, nMaxInMyEthernetReceiveCallback=%d, nTcpPacketsReceived=%d", nTotalEthReceiveBytes, nMaxInMyEthernetReceiveCallback, nTcpPacketsReceived);
+  log_v("nTotalTransmittedBytes=%ld", nTotalTransmittedBytes);
+  //pev_testExiSend();
+  //tcp_testSendData();
   //sendTestFrame(); /* just for testing, send something on the Ethernet */
 }
 
@@ -241,15 +281,18 @@ void setup() {
   pinMode(LED,OUTPUT);
   Serial.begin(115200);
   Serial.println("Started.");
-  log_v("Starting exi test...");
-  Serial.println(projectExiConnector_test(17));
-  log_v("Exi test finished.");
+  //log_v("Starting exi test...");
+  //Serial.println(projectExiConnector_test(17));
+  //log_v("Exi test finished.");
   if (initEth()) {
-    log_v("Ethernet initialized");
+    #ifdef VERBOSE_INIT_ETH
+      log_v("Ethernet initialized");
+    #endif
   } else {
     log_v("Error: Ethernet init failed.");
   }
   homeplugInit();
+  pevStateMachine_Init();
   log_v("Setup finished. The time for the tasks starts here.");
   currentTime = millis();  
 	lastTime30ms = currentTime;

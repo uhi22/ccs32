@@ -45,6 +45,11 @@ broadcasts, or they match the own MAC. The own MAC is the one which is available
 esp_eth_ioctl(eth_handle, ETH_CMD_G_MAC_ADDR, myMAC). Maybe there is the possibility to 
 receive all frames, when we switch to promiscuous mode by esp_eth_ioctl(..., ETH_CMD_S_PROMISCUOUS, ...), this is not yet tested.
 
+## Ethernet issues
+
+### emac_esp32_transmit(229): insufficient TX buffer size.
+This happens sporadically even if only transmitted 60 bytes SlacParam.Req. Strange.
+
 # Logging
 
 How to print an info to serial line inside a library, e.g. in ETH.c?
@@ -99,5 +104,39 @@ How the Neighbor Discovery works with other combinations of chargers?
            <-- NeighSol <--		   
            (reaction NeighAdv not yet implemented)
 		 
-  
+## TCP Details
+
+http://tcpipguide.com/free/t_TCPOperationalOverviewandtheTCPFiniteStateMachineF-2.htm
+https://en.wikipedia.org/wiki/Transmission_Control_Protocol
+
+STATE_CLOSED: Active Open, Send SYN: A client begins connection setup by sending a SYN message, and also sets up a TCB for this connection. It then transitions to the SYN-SENT state.
+
+STATE_SYN_SENT: Receive SYN+ACK, Send ACK: If the device that sent the SYN receives both an acknowledgment to its SYN and also a SYN from the other device, it acknowledges the SYN received and then moves straight to the ESTABLISHED state.
+
+First message:
+ - SYN
+ - SEQNR=A
+ - ACKNR=0
+ 
+Second message:
+ - SYN, ACK
+ - SEQNR=B
+ - ACKNR=A+1
+
+Third message:
+ - ACK
+ - SEQNR = last received ACKNR = A+1
+ - ACKNR = last received SEQNR = B+1
+
+Fourth message (which is the first data message):
+ - PSH, ACK
+ - SEQNR = last received ACKNR = A+1
+ - ACKNR = last received SEQNR = B+1 
+ - data 
+
+Fifth message (which is the confirmation of the first data message):
+ - ACK
+ - SEQNR = last received ACKNR = A+1
+ - ACKNR =  last received SEQNR + lengthOfData
+ 
   

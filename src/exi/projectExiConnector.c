@@ -1,21 +1,23 @@
 
 
+#include "projectExiConnector.h"
 
-
-#include "EXITypes.h"
-#include "dinEXIDatatypes.h"
-#include "dinEXIDatatypesEncoder.h"
-#include "dinEXIDatatypesDecoder.h"
+//#include "EXITypes.h"
+//#include "dinEXIDatatypes.h"
+//#include "dinEXIDatatypesEncoder.h"
+//#include "dinEXIDatatypesDecoder.h"
 
 #define BUFFER_SIZE 256
 const uint8_t mytestbuffer[BUFFER_SIZE] = {0x80, 0x9A, 0x01, 0x01, 0xBB, 0xC0, 0x1C, 0x51, 0xE0, 0x20, 0x1B, 0x71, 0x10, 0x9C, 0x7F, 0x64, 0x6C, 0x00, 0x00 };
 const uint8_t mytestbufferLen = 19;
 uint8_t mybuffer[BUFFER_SIZE];
 struct dinEXIDocument dinDoc;
+struct appHandEXIDocument aphsDoc;
 bitstream_t global_stream1;
 size_t global_pos1;
 int g_errn;
 char gDebugString[100];
+char gResultString[500];
 
 #if defined(__cplusplus)
 extern "C"
@@ -30,6 +32,14 @@ void debugAddStringAndInt(char *s, int i) {
 	char sTmp[1000];
 	sprintf(sTmp, "%s%d", s, i);
 	strcat(gDebugString, sTmp);
+}
+
+void projectExiConnector_decode_appHandExiDocument(void) {
+  /* precondition: The global_stream1.size and global_stream1.data have been set to the byte array with EXI data. */
+
+  global_stream1.pos = &global_pos1;
+  *(global_stream1.pos) = 0; /* the decoder shall start at the byte 0 */	
+  g_errn = decode_appHandExiDocument(&global_stream1, &aphsDoc);
 }
 
 int projectExiConnector_test(int a) {

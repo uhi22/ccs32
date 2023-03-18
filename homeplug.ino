@@ -89,7 +89,7 @@ void addToTrace(String strTrace) {
 
 
 void callbackReadyForTcp(uint8_t x) {
-  tcp_connect();
+  pevStateMachine_ReInit(); /* let the PEV state machine start the TCP stuff */
 }
 
 /* Extracting the EtherType from a received message. */
@@ -190,7 +190,7 @@ void evaluateSlacParamCnf(void) {
     if (iAmPev) {
         if (pevSequenceState==STATE_WAITING_FOR_SLAC_PARAM_CNF) { // # we were waiting for the SlacParamCnf
             pevSequenceDelayCycles = 4; // # original Ioniq is waiting 200ms
-            enterState(STATE_SLAC_PARAM_CNF_RECEIVED); // # enter next state. Will be handled in the cyclic runPevSequencer
+            enterState(STATE_SLAC_PARAM_CNF_RECEIVED); // # enter next state. Will be handled in the cyclic runSlacSequencer
 		}
 	}		
 }
@@ -269,7 +269,7 @@ void evaluateAttenCharInd(void) {
             composeAttenCharRsp();
             addToTrace("[PEVSLAC] transmitting ATTEN_CHAR.RSP...");
             myEthTransmit();               
-            pevSequenceState=STATE_ATTEN_CHAR_IND_RECEIVED; // # enter next state. Will be handled in the cyclic runPevSequencer
+            pevSequenceState=STATE_ATTEN_CHAR_IND_RECEIVED; // # enter next state. Will be handled in the cyclic runSlacSequencer
 		    }
 	}
 }
@@ -566,9 +566,15 @@ int isTooLong(void) {
     return (pevSequenceCyclesInState > 500);
 }
 
-void runPevSequencer(void) {
+void runSlacSequencer(void) {
     // # in PevMode, check whether homeplug modem is connected, run the SLAC and SDP
     pevSequenceCyclesInState+=1;
+    if (isEthLinkUp==0) {
+        /* If we have no ethernet link to the modem, nothing to do here. Just wait for the link. */
+        if (pevSequenceState!=STATE_INITIAL) enterState(STATE_INITIAL);
+        isSDPDone = 0;  
+        return;
+    }    
     if (pevSequenceState == STATE_INITIAL)   {
         /* We assume that the modem is present, and go directly into SLAC, without modem search. */
         enterState(STATE_READY_FOR_SLAC);

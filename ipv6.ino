@@ -7,7 +7,7 @@ const uint8_t EvccIp[16] = {0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0xc6, 0x90, 0x83, 0xf3
 uint8_t SeccIp[16]; /* the IP address of the charger */
 uint16_t seccTcpPort; /* the port number of the charger */
 uint8_t sourceIp[16];
-uint16_t evccPort=59218; /* some "random port" */
+uint16_t evccPort=59219; /* some "random port" */
 uint16_t sourceport;
 uint16_t destinationport;
 uint16_t udplen;
@@ -47,7 +47,7 @@ void evaluateUdpPayload(void) {
                 //# 0x9001 SDP response message (SECC response to the EVCC)
                 if (v2gptPayloadType == 0x9001) {
                     //# it is a SDP response from the charger to the car
-                    addToTrace("it is a SDP response from the charger to the car");
+                    //addToTrace("it is a SDP response from the charger to the car");
                     v2gptPayloadLen = (((uint32_t)udpPayload[4])<<24)  + 
                                       (((uint32_t)udpPayload[5])<<16) +
                                       (((uint32_t)udpPayload[6])<<8) +
@@ -87,10 +87,7 @@ void ipv6_evaluateReceivedPacket(void) {
           //# udplen is including 8 bytes header at the begin
           if (udplen>8) {
                     udpPayloadLen = udplen-8;
-                    //# print("udplen=" + str(udplen))
-                    //# print("myreceivebuffer len=" + str(len(myreceivebuffer)))
                     for (i=0; i<udplen-8; i++) {
-                        //#print("index " + str(i) + " " + hex(myreceivebuffer[62+i]))
                         udpPayload[i] = myreceivebuffer[62+i];
                     }
                     evaluateUdpPayload();
@@ -101,10 +98,10 @@ void ipv6_evaluateReceivedPacket(void) {
         evaluateTcpPacket();
       }
 			if (nextheader == NEXT_ICMPv6) { // it is an ICMPv6 (NeighborSolicitation etc) frame
-				addToTrace("[PEV] ICMPv6 received");
+				//addToTrace("[PEV] ICMPv6 received");
 				icmpv6type = myreceivebuffer[54];
 				if (icmpv6type == 0x87) { /* Neighbor Solicitation */
-					addToTrace("[PEV] Neighbor Solicitation received");
+					//addToTrace("[PEV] Neighbor Solicitation received");
 					evaluateNeighborSolicitation();
 				}
 			}
@@ -112,24 +109,24 @@ void ipv6_evaluateReceivedPacket(void) {
 }
 
 void ipv6_initiateSdpRequest(void) {
-            //# We are the car. We want to find out the IPv6 address of the charger. We
-            //# send a SECC Discovery Request.
-            //# The payload is just two bytes: 10 00.
-            //# First step is, to pack this payload into a V2GTP frame.
-            addToTrace("[PEV] initiating SDP request");
-            v2gtpFrameLen = 8 + 2; // # 8 byte header plus 2 bytes payload
-            v2gtpFrame[0] = 0x01; // # version
-            v2gtpFrame[1] = 0xFE; // # version inverted
-            v2gtpFrame[2] = 0x90; // # 9000 means SDP request message
-            v2gtpFrame[3] = 0x00;
-            v2gtpFrame[4] = 0x00;
-            v2gtpFrame[5] = 0x00;
-            v2gtpFrame[6] = 0x00;
-            v2gtpFrame[7] = 0x02; // # payload size
-            v2gtpFrame[8] = 0x10; // # payload
-            v2gtpFrame[9] = 0x00; // # payload
-            //# Second step: pack this into an UDP frame.
-            ipv6_packRequestIntoUdp();            
+  //# We are the car. We want to find out the IPv6 address of the charger. We
+  //# send a SECC Discovery Request.
+  //# The payload is just two bytes: 10 00.
+  //# First step is, to pack this payload into a V2GTP frame.
+  addToTrace("[PEV] initiating SDP request");
+  v2gtpFrameLen = 8 + 2; // # 8 byte header plus 2 bytes payload
+  v2gtpFrame[0] = 0x01; // # version
+  v2gtpFrame[1] = 0xFE; // # version inverted
+  v2gtpFrame[2] = 0x90; // # 9000 means SDP request message
+  v2gtpFrame[3] = 0x00;
+  v2gtpFrame[4] = 0x00;
+  v2gtpFrame[5] = 0x00;
+  v2gtpFrame[6] = 0x00;
+  v2gtpFrame[7] = 0x02; // # payload size
+  v2gtpFrame[8] = 0x10; // # payload
+  v2gtpFrame[9] = 0x00; // # payload
+  //# Second step: pack this into an UDP frame.
+  ipv6_packRequestIntoUdp();            
 }
 
 void ipv6_packRequestIntoUdp(void) {
@@ -167,58 +164,57 @@ void ipv6_packRequestIntoUdp(void) {
 }
         
 void ipv6_packRequestIntoIp(void) {
-        // # embeds the (SDP) request into the lower-layer-protocol: IP, Ethernet
-        uint8_t i;
-        uint16_t plen;
-        IpRequestLen = UdpRequestLen + 8 + 16 + 16; // # IP6 header needs 40 bytes:
-                                                    //  #   4 bytes traffic class, flow
-                                                    //  #   2 bytes destination port
-                                                    //  #   2 bytes length (incl checksum)
-                                                    //  #   2 bytes checksum
-        IpRequest[0] = 0x60; // # traffic class, flow
-        IpRequest[1] = 0; 
-        IpRequest[2] = 0;
-        IpRequest[3] = 0;
-        plen = UdpRequestLen; // length of the payload. Without headers.
-        IpRequest[4] = plen >> 8;
-        IpRequest[5] = plen & 0xFF;
-        IpRequest[6] = 0x11; // next level protocol, 0x11 = UDP in this case
-        IpRequest[7] = 0x0A; // hop limit
-        // We are the PEV. So the EvccIp is our own link-local IP address.
-        for (i=0; i<16; i++) {
-            IpRequest[8+i] = EvccIp[i]; // source IP address
-        }            
-        for (i=0; i<16; i++) {
-            IpRequest[24+i] = broadcastIPv6[i]; // destination IP address
-        }
-        for (i=0; i<UdpRequestLen; i++) {
-            IpRequest[40+i] = UdpRequest[i];
-        }            
-        //#showAsHex(IpRequest, "IpRequest ")
-        ipv6_packRequestIntoEthernet();
+  // # embeds the (SDP) request into the lower-layer-protocol: IP, Ethernet
+  uint8_t i;
+  uint16_t plen;
+  IpRequestLen = UdpRequestLen + 8 + 16 + 16; // # IP6 header needs 40 bytes:
+                                              //  #   4 bytes traffic class, flow
+                                              //  #   2 bytes destination port
+                                              //  #   2 bytes length (incl checksum)
+                                              //  #   2 bytes checksum
+  IpRequest[0] = 0x60; // # traffic class, flow
+  IpRequest[1] = 0; 
+  IpRequest[2] = 0;
+  IpRequest[3] = 0;
+  plen = UdpRequestLen; // length of the payload. Without headers.
+  IpRequest[4] = plen >> 8;
+  IpRequest[5] = plen & 0xFF;
+  IpRequest[6] = 0x11; // next level protocol, 0x11 = UDP in this case
+  IpRequest[7] = 0x0A; // hop limit
+  // We are the PEV. So the EvccIp is our own link-local IP address.
+  for (i=0; i<16; i++) {
+    IpRequest[8+i] = EvccIp[i]; // source IP address
+  }            
+  for (i=0; i<16; i++) {
+    IpRequest[24+i] = broadcastIPv6[i]; // destination IP address
+  }
+  for (i=0; i<UdpRequestLen; i++) {
+    IpRequest[40+i] = UdpRequest[i];
+  }            
+  ipv6_packRequestIntoEthernet();
 }
 
 void ipv6_packRequestIntoEthernet(void) {
-        //# packs the IP packet into an ethernet packet
-        uint8_t i;        
-        mytransmitbufferLen = IpRequestLen + 6 + 6 + 2; // # Ethernet header needs 14 bytes:
-                                                       // #  6 bytes destination MAC
-                                                       // #  6 bytes source MAC
-                                                       // #  2 bytes EtherType
-        //# fill the destination MAC with the IPv6 multicast
-        mytransmitbuffer[0] = 0x33;
-        mytransmitbuffer[1] = 0x33;
-        mytransmitbuffer[2] = 0x00;
-        mytransmitbuffer[3] = 0x00;
-        mytransmitbuffer[4] = 0x00;
-        mytransmitbuffer[5] = 0x01;
-        fillSourceMac(myMAC); // bytes 6 to 11 are the source MAC
-        mytransmitbuffer[12] = 0x86; // # 86dd is IPv6
-        mytransmitbuffer[13] = 0xdd;
-        for (i=0; i<IpRequestLen; i++) {
-            mytransmitbuffer[14+i] = IpRequest[i];
-        }
-        myEthTransmit();
+  //# packs the IP packet into an ethernet packet
+  uint8_t i;        
+  mytransmitbufferLen = IpRequestLen + 6 + 6 + 2; // # Ethernet header needs 14 bytes:
+                                                  // #  6 bytes destination MAC
+                                                  // #  6 bytes source MAC
+                                                  // #  2 bytes EtherType
+  //# fill the destination MAC with the IPv6 multicast
+  mytransmitbuffer[0] = 0x33;
+  mytransmitbuffer[1] = 0x33;
+  mytransmitbuffer[2] = 0x00;
+  mytransmitbuffer[3] = 0x00;
+  mytransmitbuffer[4] = 0x00;
+  mytransmitbuffer[5] = 0x01;
+  fillSourceMac(myMAC); // bytes 6 to 11 are the source MAC
+  mytransmitbuffer[12] = 0x86; // # 86dd is IPv6
+  mytransmitbuffer[13] = 0xdd;
+  for (i=0; i<IpRequestLen; i++) {
+    mytransmitbuffer[14+i] = IpRequest[i];
+  }
+  myEthTransmit();
 }
 
 void evaluateNeighborSolicitation(void) {
@@ -234,29 +230,29 @@ void evaluateNeighborSolicitation(void) {
   
   /* send a NeighborAdvertisement as response. */
 	// destination MAC = charger MAC
-    fillDestinationMac(evseMac); // bytes 6 to 11 are the source MAC	
+  fillDestinationMac(evseMac); // bytes 6 to 11 are the source MAC	
 	// source MAC = my MAC
-    fillSourceMac(myMAC); // bytes 6 to 11 are the source MAC
+  fillSourceMac(myMAC); // bytes 6 to 11 are the source MAC
 	// Ethertype 86DD
-    mytransmitbuffer[12] = 0x86; // # 86dd is IPv6
-    mytransmitbuffer[13] = 0xdd;
-    mytransmitbuffer[14] = 0x60; // # traffic class, flow
-    mytransmitbuffer[15] = 0; 
-    mytransmitbuffer[16] = 0;
-    mytransmitbuffer[17] = 0;
+  mytransmitbuffer[12] = 0x86; // # 86dd is IPv6
+  mytransmitbuffer[13] = 0xdd;
+  mytransmitbuffer[14] = 0x60; // # traffic class, flow
+  mytransmitbuffer[15] = 0; 
+  mytransmitbuffer[16] = 0;
+  mytransmitbuffer[17] = 0;
 	// plen
 	#define ICMP_LEN 32 /* bytes in the ICMPv6 */
-    mytransmitbuffer[18] = 0;
-    mytransmitbuffer[19] = ICMP_LEN;
+  mytransmitbuffer[18] = 0;
+  mytransmitbuffer[19] = ICMP_LEN;
 	mytransmitbuffer[20] = NEXT_ICMPv6;
 	mytransmitbuffer[21] = 0xff;
-    // We are the PEV. So the EvccIp is our own link-local IP address.
-    for (i=0; i<16; i++) {
-        mytransmitbuffer[22+i] = EvccIp[i]; // source IP address
-    }            
-    for (i=0; i<16; i++) {
-        mytransmitbuffer[38+i] = SeccIp[i]; // destination IP address
-    }
+  // We are the PEV. So the EvccIp is our own link-local IP address.
+  for (i=0; i<16; i++) {
+      mytransmitbuffer[22+i] = EvccIp[i]; // source IP address
+  }            
+  for (i=0; i<16; i++) {
+      mytransmitbuffer[38+i] = SeccIp[i]; // destination IP address
+  }
 	/* here starts the ICMPv6 */
 	mytransmitbuffer[54] = 0x88; /* Neighbor Advertisement */
 	mytransmitbuffer[55] = 0;	
@@ -276,7 +272,7 @@ void evaluateNeighborSolicitation(void) {
 	
 	checksum = calculateUdpAndTcpChecksumForIPv6(&mytransmitbuffer[54], ICMP_LEN, EvccIp, SeccIp, NEXT_ICMPv6);
 	mytransmitbuffer[56] = checksum >> 8;
-    mytransmitbuffer[57] = checksum & 0xFF;
-    myEthTransmit();
+  mytransmitbuffer[57] = checksum & 0xFF;
+  myEthTransmit();
 }
 
