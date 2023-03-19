@@ -75,6 +75,7 @@ uint8_t remainingNumberOfSounds;
 uint8_t AttenCharIndNumberOfSounds;
 uint8_t SdpRepetitionCounter;
 uint8_t isSDPDone;
+uint8_t sdp_state;
 uint8_t nEvseModemMissingCounter;
 
 void callbackReadyForTcp(uint8_t x) {
@@ -178,7 +179,7 @@ void evaluateSlacParamCnf(void) {
   if (iAmPev) {
     if (pevSequenceState==STATE_WAITING_FOR_SLAC_PARAM_CNF) { //  we were waiting for the SlacParamCnf
       pevSequenceDelayCycles = 4; // original Ioniq is waiting 200ms
-      enterState(STATE_SLAC_PARAM_CNF_RECEIVED); // enter next state. Will be handled in the cyclic runSlacSequencer
+      slac_enterState(STATE_SLAC_PARAM_CNF_RECEIVED); // enter next state. Will be handled in the cyclic runSlacSequencer
 		}
 	}		
 }
@@ -325,7 +326,7 @@ void evaluateSlacMatchCnf(void) {
     if (iAmEvse==1) {
             // If we are EVSE, nothing to do. We have sent the match.CNF by our own.
             // The SET_KEY was already done at startup.
-    } else {
+    } else {      
             addToTrace("[PEVSLAC] received SLAC_MATCH.CNF");
             s = "";
             for (i=0; i<7; i++) { // NID has 7 bytes
@@ -344,7 +345,7 @@ void evaluateSlacMatchCnf(void) {
             addToTrace("[PEVSLAC] transmitting CM_SET_KEY.REQ");
             myEthTransmit();
             if (pevSequenceState==STATE_WAITING_FOR_SLAC_MATCH_CNF) { // we were waiting for finishing the SLAC_MATCH.CNF and SET_KEY.REQ
-                enterState(STATE_WAITING_FOR_RESTART2);
+                slac_enterState(STATE_WAITING_FOR_RESTART2);
             }
 		}
 }
@@ -408,6 +409,7 @@ void evaluateSetKeyCnf(void) {
         addToTrace("[PEVSLAC] SetKeyCnf says 0, this would be a bad sign for local modem, but normal for remote.");
     } else {
         addToTrace("[PEVSLAC] SetKeyCnf says " + String(result) + ", this is formally 'rejected', but indeed ok.");
+        connMgr_SlacOk();
 	  }
 }
 
@@ -543,7 +545,7 @@ uint8_t isEvseModemFound(void) {
   return numberOfFoundModems>1;
 }
 
-void enterState(int n) {
+void slac_enterState(int n) {
   addToTrace("[PEVSLAC] from " + String(pevSequenceState) + " entering " + String(n));
   pevSequenceState = n;
   pevSequenceCyclesInState = 0;
@@ -555,17 +557,20 @@ int isTooLong(void) {
 }
 
 void runSlacSequencer(void) {
-    /* in PevMode, check whether homeplug modem is connected, run the SLAC and SDP */
-    pevSequenceCyclesInState+=1;
-    if (isEthLinkUp==0) {
-        /* If we have no ethernet link to the modem, nothing to do here. Just wait for the link. */
-        if (pevSequenceState!=STATE_INITIAL) enterState(STATE_INITIAL);
-        isSDPDone = 0;  
-        return;
-    }    
+    /* in PevMode, check whether homeplug modem is connected, run the SLAC */
+    if (connMgr_getConnectionLevel()<10) {
+      /* we have no modem seen. --> nothing to do for the SLAC */
+      if (pevSequenceState!=STATE_INITIAL) slac_enterState(STATE_INITIAL);
+      return;
+    }
+    if (connMgr_getConnectionLevel()>=20) {
+      /* we have two modems in the AVLN. This means, the modem pairing is already done. --> nothing to do for the SLAC */
+      if (pevSequenceState!=STATE_INITIAL) slac_enterState(STATE_INITIAL);
+      return;
+    }
     if (pevSequenceState == STATE_INITIAL)   {
-        /* We assume that the modem is present, and go directly into SLAC, without modem search. */
-        enterState(STATE_READY_FOR_SLAC);
+        /* The modem is present, starting SLAC. */
+        slac_enterState(STATE_READY_FOR_SLAC);
         return;
     } 
     if (pevSequenceState==STATE_READY_FOR_SLAC) {
@@ -573,14 +578,14 @@ void runSlacSequencer(void) {
             addToTrace("[PEVSLAC] Sending SLAC_PARAM.REQ...");
             composeSlacParamReq();
             myEthTransmit();                
-            enterState(STATE_WAITING_FOR_SLAC_PARAM_CNF);
+            slac_enterState(STATE_WAITING_FOR_SLAC_PARAM_CNF);
             return;
 	  }
     if (pevSequenceState==STATE_WAITING_FOR_SLAC_PARAM_CNF) { // Waiting for slac_param confirmation.
             if (pevSequenceCyclesInState>=33) {
                 // No response for 1s, this is an error.
                 addToTrace("[PEVSLAC] Timeout while waiting for SLAC_PARAM.CNF");
-                enterState(STATE_INITIAL);
+                slac_enterState(STATE_INITIAL);
 			      }
             // (the normal state transition is done in the reception handler)
             return;
@@ -593,7 +598,7 @@ void runSlacSequencer(void) {
                                         //  250ms. In contrast, Supercharger and Compleo do not respond anymore if we
                                         //  wait so long.
             nRemainingStartAttenChar = 3; // There shall be 3 START_ATTEN_CHAR messages.
-            enterState(STATE_BEFORE_START_ATTEN_CHAR);
+            slac_enterState(STATE_BEFORE_START_ATTEN_CHAR);
             return;
 	  }
     if (pevSequenceState==STATE_BEFORE_START_ATTEN_CHAR) { // received SLAC_PARAM.CNF. Multiple transmissions of START_ATTEN_CHAR.                
@@ -614,7 +619,7 @@ void runSlacSequencer(void) {
                 pevSequenceDelayCycles = 0; // original from ioniq is 40ms after the last START_ATTEN_CHAR.IND.
                                             // Shall be 20ms to 50ms. So we set to 0 and the normal 30ms call cycle is perfect.
                 remainingNumberOfSounds = 10; // We shall transmit 10 sound messages.
-                enterState(STATE_SOUNDING);
+                slac_enterState(STATE_SOUNDING);
 			      }
             return;
 	  }
@@ -629,7 +634,7 @@ void runSlacSequencer(void) {
                 addToTrace("[PEVSLAC] transmitting MNBC_SOUND.IND..."); // original from ioniq is 40ms after the last START_ATTEN_CHAR.IND
                 myEthTransmit();
                 if (remainingNumberOfSounds==0) {
-                    enterState(STATE_WAIT_FOR_ATTEN_CHAR_IND); // move fast to the next state, so that a fast response is catched in the correct state
+                    slac_enterState(STATE_WAIT_FOR_ATTEN_CHAR_IND); // move fast to the next state, so that a fast response is catched in the correct state
 				        }
                 pevSequenceDelayCycles = 0; // original from ioniq is 20ms between the messages.
                                             // Shall be 20ms to 50ms. So we set to 0 and the normal 30ms call cycle is perfect.
@@ -640,7 +645,7 @@ void runSlacSequencer(void) {
             // todo: it is possible that we receive this message from multiple chargers. We need
             // to select the charger with the loudest reported signals.
             if (isTooLong()) {
-                enterState(STATE_INITIAL);
+                slac_enterState(STATE_INITIAL);
 			      }
             return;
             // (the normal state transition is done in the reception handler)
@@ -648,7 +653,7 @@ void runSlacSequencer(void) {
     if (pevSequenceState==STATE_ATTEN_CHAR_IND_RECEIVED) { // ATTEN_CHAR.IND was received and the
                                                            // nearest charger decided and the 
                                                            // ATTEN_CHAR.RSP was sent.
-            enterState(STATE_DELAY_BEFORE_MATCH);
+            slac_enterState(STATE_DELAY_BEFORE_MATCH);
             pevSequenceDelayCycles = 30; // original from ioniq is 860ms to 980ms from ATTEN_CHAR.RSP to SLAC_MATCH.REQ
             return;
 	  }
@@ -661,12 +666,12 @@ void runSlacSequencer(void) {
             showStatus("SLAC match", "pevState");
             addToTrace("[PEVSLAC] transmitting SLAC_MATCH.REQ...");
             myEthTransmit();
-            enterState(STATE_WAITING_FOR_SLAC_MATCH_CNF);
+            slac_enterState(STATE_WAITING_FOR_SLAC_MATCH_CNF);
             return;
 	  }
     if (pevSequenceState==STATE_WAITING_FOR_SLAC_MATCH_CNF) { // waiting for SLAC_MATCH.CNF
             if (isTooLong()) {
-                enterState(STATE_INITIAL);
+                slac_enterState(STATE_INITIAL);
                 return;
 			      }
             pevSequenceDelayCycles = 100; // 3s reset wait time (may be a little bit too short, need a retry)
@@ -686,7 +691,7 @@ void runSlacSequencer(void) {
             numberOfFoundModems = 0; // reset the number, we want to count the modems newly.
             composeGetKey();
             myEthTransmit();                
-            enterState(STATE_FIND_MODEMS2);
+            slac_enterState(STATE_FIND_MODEMS2);
             return;
     }
     if (pevSequenceState==STATE_FIND_MODEMS2) { // Waiting for the modems to answer.
@@ -702,87 +707,70 @@ void runSlacSequencer(void) {
                     if (nEvseModemMissingCounter>10) {
                             // We lost the connection to the EVSE modem. Back to the beginning.
                             addToTrace("[PEVSLAC] We lost the connection to the EVSE modem. Back to the beginning.");
-                            enterState(STATE_INITIAL);
+                            slac_enterState(STATE_INITIAL);
                             return;
                     }
                     // The EVSE modem is (shortly) not seen. Ask again.
                     pevSequenceDelayCycles=30;
-                    enterState(STATE_WAITING_FOR_RESTART2);
+                    slac_enterState(STATE_WAITING_FOR_RESTART2);
                     return;
                 }
                 // The EVSE modem is present (or we are simulating)
                 addToTrace("[PEVSLAC] EVSE is up, pairing successful.");
                 nEvseModemMissingCounter=0;
-                pevSequenceDelayCycles=0;
-                composeGetSwReq();
-                addToTrace("[PEVSLAC] Requesting SW versions from the modems...");
-                myEthTransmit();
-                enterState(STATE_WAITING_FOR_SW_VERSIONS);
+                connMgr_ModemFinderOk(2); /* Two modems were found. */
+                /* This is the end of the SLAC. */
+                /* The AVLN is established, we have at least two modems in the network. */
+                slac_enterState(STATE_INITIAL);
             }                
             return;
         }        
-        if (pevSequenceState==STATE_WAITING_FOR_SW_VERSIONS) {
-            if (pevSequenceCyclesInState>=2) { // 2 cycles = 60ms are more than sufficient.
-                // Measured: The local modem answers in less than 1ms. The remote modem in ~5ms.
-                // It was sufficient time to get the answers from the modems.
-                addToTrace("[PEVSLAC] It was sufficient time to get the SW versions from the modems.");
-                enterState(STATE_READY_FOR_SDP);
-            }    
-            return;
-        }
-        if (pevSequenceState==STATE_READY_FOR_SDP) {
-            // The AVLN is established, we have at least two modems in the network.
-            // If we did not SDP up to now, let's do it.
-            if (isSDPDone) {
-                // SDP is already done. No need to do it again. We are finished for the normal case.
-                // But we want to check whether the connection is still alive, so we start the
-                // modem-search from time to time.
-                pevSequenceDelayCycles = 300; // e.g. 10s
-                enterState(STATE_WAITING_FOR_RESTART2);
-                return;
-            }                
-            // SDP was not done yet. Now we start it.
-            showStatus("SDP ongoing", "pevState");
-            addToTrace("[PEVSLAC] SDP was not done yet. Now we start it.");
-            // Next step is to discover the chargers communication controller (SECC) using discovery protocol (SDP).
-            pevSequenceDelayCycles=0;
-            SdpRepetitionCounter = 50; // prepare the number of retries for the SDP. The more the better.
-            enterState(STATE_SDP);
-            return;
-        }        
-        if (pevSequenceState==STATE_SDP) { // SDP request transmission and waiting for SDP response.
-            if (isSDPDone) {
-                // we received an SDP response, and can start the high-level communication
-                showStatus("SDP finished", "pevState");
-                addToTrace("[PEVSLAC] Now we know the chargers IP.");
-                callbackReadyForTcp(1);
-                // Continue with checking the connection, for the case somebody pulls the plug.
-                pevSequenceDelayCycles = 300; // e.g. 10s
-                enterState(STATE_WAITING_FOR_RESTART2);
-                return;
-            }
-            if (pevSequenceDelayCycles>0) {
-                // just waiting until next action
-                pevSequenceDelayCycles-=1;
-                return;
-            }                
-            if (SdpRepetitionCounter>0) {
+        // invalid state is reached. As robustness measure, go to initial state.
+        slac_enterState(STATE_INITIAL);    
+}
+
+void runSdpStateMachine(void) {
+  if (connMgr_getConnectionLevel()<20) {
+    /* We have no AVLN established. It does not make sense to start SDP. */
+    sdp_state = 0; 
+    return;
+  }
+  if (connMgr_getConnectionLevel()>20) {
+    /* SDP was already successful. No need to run it again. */
+    sdp_state = 0;
+    return;  
+  }
+  /* The ConnectionLevel demands the SDP. */
+  if (sdp_state==0) {
+      // Next step is to discover the chargers communication controller (SECC) using discovery protocol (SDP).
+      showStatus("SDP ongoing", "pevState");
+      addToTrace("[SDP] Starting SDP.");
+      pevSequenceDelayCycles=0;
+      SdpRepetitionCounter = 50; // prepare the number of retries for the SDP. The more the better.
+      sdp_state = 1;
+      return;
+  }        
+  if (sdp_state == 1) { // SDP request transmission and waiting for SDP response.
+    /* The normal state transition in case of received SDP response is done in
+       the IPv6 receive handler. This will inform the ConnectionManager, and we will stop here
+       because of the increased ConnectionLevel. */
+    if (pevSequenceDelayCycles>0) {
+      // just waiting until next action
+      pevSequenceDelayCycles-=1;
+      return;
+    }                
+    if (SdpRepetitionCounter>0) {
                 // Reference: The Ioniq waits 4.1s from the slac_match.cnf to the SDP request.
                 // Here we send the SdpRequest. Maybe too early, but we will retry if there is no response.
                 ipv6_initiateSdpRequest();
                 SdpRepetitionCounter-=1;
                 pevSequenceDelayCycles = 15; // e.g. half-a-second delay until re-try of the SDP
-                enterState(STATE_SDP); // stick in the same state
                 return;
-            }
-            // All repetitions are over, no SDP response was seen. Back to the beginning.    
-            addToTrace("[PEVSLAC] ERROR: Did not receive SDP response. Starting from the beginning.");
-            enterState(STATE_INITIAL);
-            return;
-        }
-        // invalid state is reached. As robustness measure, go to initial state.
-        enterState(STATE_INITIAL);
-    
+    }
+    // All repetitions are over, no SDP response was seen. Back to the beginning.    
+    addToTrace("[SDP] ERROR: Did not receive SDP response. Giving up.");
+    sdp_state = 0;
+  }     
 }
 
 void evaluateReceivedHomeplugPacket(void) {

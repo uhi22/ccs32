@@ -53,8 +53,11 @@ void addToTrace(String strTrace) {
 
 /* This task runs each 30ms. */
 void task30ms(void) {
-	nCycles30ms++;
-	runSlacSequencer();
+  nCycles30ms++;
+  connMgr_Mainfunction(); /* ConnectionManager */
+  modemFinder_Mainfunction();
+  runSlacSequencer();
+  runSdpStateMachine();
   tcp_Mainfunction();
   pevStateMachine_Mainfunction();
 }
@@ -64,18 +67,19 @@ void task1s(void) {
   if (ledState==0) {
     digitalWrite(LED,HIGH);
     //Serial.println("LED on");
-	  ledState = 1;
+    ledState = 1;
   } else {
     digitalWrite(LED,LOW);
     //Serial.println("LED off");
-	  ledState = 0;    
+    ledState = 0;
   }
   //log_v("nTotalEthReceiveBytes=%ld, nCycles30ms=%ld", nTotalEthReceiveBytes, nCycles30ms);
-  log_v("nTotalEthReceiveBytes=%ld, nMaxInMyEthernetReceiveCallback=%d, nTcpPacketsReceived=%d", nTotalEthReceiveBytes, nMaxInMyEthernetReceiveCallback, nTcpPacketsReceived);
-  log_v("nTotalTransmittedBytes=%ld", nTotalTransmittedBytes);
+  //log_v("nTotalEthReceiveBytes=%ld, nMaxInMyEthernetReceiveCallback=%d, nTcpPacketsReceived=%d", nTotalEthReceiveBytes, nMaxInMyEthernetReceiveCallback, nTcpPacketsReceived);
+  //log_v("nTotalTransmittedBytes=%ld", nTotalTransmittedBytes);
   //pev_testExiSend(); /* just for testing, send some EXI data. */
   //tcp_testSendData(); /* just for testing, send something with TCP. */
   //sendTestFrame(); /* just for testing, send something on the Ethernet. */
+
 }
 
 /**********************************************************/
@@ -92,9 +96,9 @@ void setup() {
   homeplugInit();
   pevStateMachine_Init();
   /* The time for the tasks starts here. */
-  currentTime = millis();  
-	lastTime30ms = currentTime;
-	lastTime1s = currentTime;
+  currentTime = millis();
+  lastTime30ms = currentTime;
+  lastTime1s = currentTime;
   log_v("Setup finished.");
 }
 
@@ -102,11 +106,11 @@ void loop() {
   /* a simple scheduler which calls the cyclic tasks depending on system time */
   currentTime = millis();
   if ((currentTime - lastTime30ms)>30) {
-	  lastTime30ms += 30;
-	  task30ms();
+    lastTime30ms += 30;
+    task30ms();
   }
   if ((currentTime - lastTime1s)>1000) {
-	  lastTime1s += 1000;
-	  task1s();
+    lastTime1s += 1000;
+    task1s();
   }
 }

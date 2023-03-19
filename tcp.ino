@@ -97,6 +97,7 @@ void evaluateTcpPacket(void) {
     tcp_rxdataLen = tmpPayloadLen;
     /* myreceivebuffer[74] is the first payload byte. */
     memcpy(tcp_rxdata, &myreceivebuffer[74], tcp_rxdataLen);  /* provide the received data to the application */
+    connMgr_TcpOk();
     TcpAckNr = remoteSeqNr+tcp_rxdataLen; /* The ACK number of our next transmit packet is tcp_rxdataLen more than the received seq number. */
     tcp_sendAck();
   }
@@ -297,13 +298,16 @@ uint8_t tcp_isConnected(void) {
 }
 
 void tcp_Mainfunction(void) {
- if (tcpActivityTimer>0) tcpActivityTimer--;
- if ((tcpActivityTimer==0) && (tcpState!=TCP_STATE_CLOSED)) {
-  /* We have a timeout while a connection was present. */
-  addToTrace("[TCP] timeout. Will try to reconnect.");
-  /* use a new port */
-  evccPort++;
-  if (evccPort>65000) evccPort=60000; 
-  tcp_connect();
+ if (connMgr_getConnectionLevel()<50) {
+  /* No SDP done. Means: It does not make sense to start or continue TCP. */
+  tcpState = TCP_STATE_CLOSED;
+  return;
+ }
+ if ((connMgr_getConnectionLevel()==50) && (tcpState == TCP_STATE_CLOSED)) {
+   /* SDP is finished, but no TCP connected yet. */
+   /* use a new port */
+   evccPort++;
+   if (evccPort>65000) evccPort=60000; 
+   tcp_connect();
  }
 }

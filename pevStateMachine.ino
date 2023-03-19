@@ -92,7 +92,9 @@ void routeDecoderInputData(void) {
   global_streamDec.size = tcp_rxdataLen - V2GTP_HEADER_SIZE;
   addToTrace("The decoder will see:");  
   showBuffer(global_streamDec.data, global_streamDec.size);
-
+  /* We have something to decode, this is a good sign that the connection is fine.
+     Inform the ConnectionManager that everything is fine. */
+  connMgr_ApplOk();
 }
 
 /********* EXI creation functions ************************/
@@ -219,29 +221,6 @@ void pev_sendWeldingDetectionReq(void) {
 }
 
 /**** State functions ***************/
-void pev_stateFunctionConnecting(void) {
-  if (pev_cyclesInState<30) { // The first second in the state just do nothing.
-    return;
-  }
-  if (tcp_isClosed()) tcp_connect(); /* This is a NOT blocking call. It just initiates the connection, but we must wait a second until the
-                Handshake is done. */
-  if ((pev_cyclesInState>60)) {
-            // Bad case: Connection did not work. May happen if we are too fast and the charger needs more
-            // time until the socket is ready. Or the charger is defective. Or somebody pulled the plug.
-            // No matter what is the reason, we just try again and again. What else would make sense?
-            addToTrace("Connection failed. Will try again.");
-            pevStateMachine_ReInit(); // stay in same state, reset the cyclesInState and try again
-            return;
-  }
-  if (tcp_isConnected()) { 
-            // Good case: We are connected. Change to the next state.
-            addToTrace("connected");
-            publishStatus("TCP connected");
-            pev_isUserStopRequest = 0;
-            pev_enterState(PEV_STATE_Connected);
-            return;
-  }
-}
 
 void stateFunctionConnected(void) {
   // We have a freshly established TCP channel. We start the V2GTP/EXI communication now.
@@ -706,13 +685,16 @@ uint8_t pev_isTooLong(void) {
 
 /******* The statemachine dispatcher *******************/
 void pev_runFsm(void) {
- if (isEthLinkUp==0) {
-        /* If we have no ethernet link to the modem, nothing to do here. Just wait for the link. */
+ if (connMgr_getConnectionLevel()<CONNLEVEL_80_TCP_RUNNING) {
+        /* If we have no TCP to the charger, nothing to do here. Just wait for the link. */
         if (pev_state!=PEV_STATE_NotYetInitialized) pev_enterState(PEV_STATE_NotYetInitialized);   
         return;
  }
+ if (connMgr_getConnectionLevel()==CONNLEVEL_80_TCP_RUNNING) {
+        /* We have a TCP connection. This is the trigger for us. */
+        if (pev_state==PEV_STATE_NotYetInitialized) pev_enterState(PEV_STATE_Connected);   
+ }
  switch (pev_state) {
-    case PEV_STATE_Connecting: pev_stateFunctionConnecting(); break;
     case PEV_STATE_Connected: stateFunctionConnected();  break;
     case PEV_STATE_WaitForSupportedApplicationProtocolResponse: stateFunctionWaitForSupportedApplicationProtocolResponse(); break;
     case PEV_STATE_WaitForSessionSetupResponse: stateFunctionWaitForSessionSetupResponse(); break;

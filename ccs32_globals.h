@@ -15,7 +15,7 @@ extern uint16_t myreceivebufferLen;
 extern uint8_t myMAC[6];
 extern uint8_t nMaxInMyEthernetReceiveCallback, nInMyEthernetReceiveCallback;
 extern uint16_t nTcpPacketsReceived;
-
+extern uint8_t isEthLinkUp;
 
 
 /* TCP */
@@ -29,6 +29,15 @@ extern uint8_t tcpPayload[TCP_PAYLOAD_LEN];
 
 /* V2GTP */
 #define V2GTP_HEADER_SIZE 8 /* header has 8 bytes */
+
+/* ConnectionManager */
+#define CONNLEVEL_100_APPL_RUNNING 100
+#define CONNLEVEL_80_TCP_RUNNING 80
+#define CONNLEVEL_50_SDP_DONE 50
+#define CONNLEVEL_20_TWO_MODEMS_FOUND 20
+#define CONNLEVEL_15_SLAC_ONGOING 15
+#define CONNLEVEL_10_ONE_MODEM_FOUND 10
+
 
 /* Charging behavior */
 #define PARAM_U_DELTA_MAX_FOR_END_OF_PRECHARGE 20 /* [volts] The maximum voltage difference during PreCharge, to close the relay. */

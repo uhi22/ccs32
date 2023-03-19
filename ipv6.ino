@@ -61,7 +61,9 @@ void evaluateUdpPayload(void) {
                             }
                             //# Extract the TCP port, on which the charger will listen:
                             seccTcpPort = (((uint16_t)(udpPayload[8+16]))<<8) + udpPayload[8+16+1];
-                            isSDPDone = 1;
+                            showStatus("SDP finished", "pevState");
+                            addToTrace("[SDP] Now we know the chargers IP.");
+                            connMgr_SdpOk();
                     }
                 } else {    
                   addToTrace("v2gptPayloadType " + String(v2gptPayloadType, HEX) + " not supported");
@@ -113,7 +115,7 @@ void ipv6_initiateSdpRequest(void) {
   //# send a SECC Discovery Request.
   //# The payload is just two bytes: 10 00.
   //# First step is, to pack this payload into a V2GTP frame.
-  addToTrace("[PEV] initiating SDP request");
+  addToTrace("[SDP] initiating SDP request");
   v2gtpFrameLen = 8 + 2; // # 8 byte header plus 2 bytes payload
   v2gtpFrame[0] = 0x01; // # version
   v2gtpFrame[1] = 0xFE; // # version inverted

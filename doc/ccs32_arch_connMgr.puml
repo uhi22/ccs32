@@ -1,0 +1,34 @@
+@startuml
+
+header
+blue lines: data flow. 
+green lines: connection control and status reporting
+endheader
+
+[SLAC]
+[ModemFinder]
+[SDP]
+[TCP]
+[V2GTP,EXICodec] as EXI
+[PevCharging]
+[ConnMgr]
+[Eth]
+
+
+[ConnMgr] <-[#green]r-> [ModemFinder]
+[ConnMgr] <-[#green]r-> [SLAC]
+[ConnMgr] <-[#green]r-> [SDP]
+[ConnMgr] <-[#green]r-> [TCP]
+[ConnMgr] <-[#green]r-> [PevCharging]
+
+
+[EXI] <-[#blue]up-> [PevCharging]
+[TCP] <-[#blue]up-> [EXI]
+[Eth] <-[#blue]up-> [IPv6]
+[IPv6] <-[#blue]up-> [TCP]
+[IPv6] <-[#blue]up-> [UDP]
+[Eth] <-[#blue]up-> [SLAC]
+[Eth] <-[#blue]up-> [ModemFinder]
+[UDP] <-[#blue]up-> [SDP]
+ 
+@enduml
