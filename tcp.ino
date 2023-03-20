@@ -79,6 +79,7 @@ void evaluateTcpPacket(void) {
       TcpAckNr = remoteSeqNr+1; /* The ACK number of our next transmit packet is one more than the received seq number. */
       tcpState = TCP_STATE_ESTABLISHED;
       tcp_sendFirstAck();
+      connMgr_TcpOk();
       addToTrace("[TCP] connected.");
     }
     return;

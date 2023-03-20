@@ -55,6 +55,15 @@ E (23219) esp.emac: no mem for receive buffer
 E (23433) esp.emac: no mem for receive buffer
 This stops the charging process, because no response from Charger is seen anymore.
 
+Also discussed in
+https://github.com/cmbahadir/opcua-esp32/issues/42
+and
+https://github.com/espressif/esp-idf/issues/9594
+and
+https://github.com/espressif/esp-idf/issues/9308
+Maybe the fix https://github.com/espressif/esp-idf/commit/785f154f5652b353c460ec47cb90aa404207918c needs to be introduced.
+Need to check which version is used in the Arduino package.
+
 # Logging
 
 How to print an info to serial line inside a library, e.g. in ETH.c?
