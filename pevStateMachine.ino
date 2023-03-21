@@ -225,7 +225,7 @@ void pev_sendWeldingDetectionReq(void) {
 void stateFunctionConnected(void) {
   // We have a freshly established TCP channel. We start the V2GTP/EXI communication now.
   // We just use the initial request message from the Ioniq. It contains one entry: DIN.
-  addToTrace("Sending the initial SupportedApplicationProtocolReq");
+  addToTrace("Checkpoint400: Sending the initial SupportedApplicationProtocolReq");
   addV2GTPHeaderAndTransmit(exiDemoSupportedApplicationProtocolRequestIoniq, sizeof(exiDemoSupportedApplicationProtocolRequestIoniq));
   hardwareInterface_resetSimulation();
   pev_enterState(PEV_STATE_WaitForSupportedApplicationProtocolResponse);
@@ -253,7 +253,7 @@ void stateFunctionWaitForSupportedApplicationProtocolResponse(void) {
                       aphsDoc.supportedAppProtocolRes.SchemaID);
         addToTrace(gResultString);
         publishStatus("Schema negotiated");
-        addToTrace("Will send SessionSetupReq");
+        addToTrace("Checkpoint403: Schema negotiated. And Checkpoint500: Will send SessionSetupReq");
         projectExiConnector_prepare_DinExiDocument();
         dinDocEnc.V2G_Message.Body.SessionSetupReq_isUsed = 1u;
         init_dinSessionSetupReqType(&dinDocEnc.V2G_Message.Body.SessionSetupReq);
@@ -289,7 +289,7 @@ void stateFunctionWaitForSessionSetupResponse(void) {
     if (dinDocDec.V2G_Message.Body.SessionSetupRes_isUsed) {
       memcpy(sessionId, dinDocDec.V2G_Message.Header.SessionID.bytes, SESSIONID_LEN);
       sessionIdLen = dinDocDec.V2G_Message.Header.SessionID.bytesLen; /* store the received SessionID, we will need it later. */
-      addToTrace("The Evse decided for SessionId ");
+      addToTrace("Checkpoint506: The Evse decided for SessionId");
       showBuffer(sessionId, sessionIdLen);
       publishStatus("Session established");
       addToTrace("Will send ServiceDiscoveryReq");
@@ -340,7 +340,7 @@ void stateFunctionWaitForServicePaymentSelectionResponse(void) {
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
     if (dinDocDec.V2G_Message.Body.ServicePaymentSelectionRes_isUsed) {
       publishStatus("ServPaySel done");
-      addToTrace("Will send ContractAuthenticationReq");
+      addToTrace("Checkpoint530: Will send ContractAuthenticationReq");
       projectExiConnector_prepare_DinExiDocument();
       dinDocEnc.V2G_Message.Body.ContractAuthenticationReq_isUsed = 1u;
       init_dinContractAuthenticationReqType(&dinDocEnc.V2G_Message.Body.ContractAuthenticationReq);

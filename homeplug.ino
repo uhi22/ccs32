@@ -175,7 +175,7 @@ void composeSlacParamReq(void) {
 
 void evaluateSlacParamCnf(void) {
   /* As PEV, we receive the first response from the charger. */
-  addToTrace("[PEVSLAC] received SLAC_PARAM.CNF");
+  addToTrace("[PEVSLAC] Checkpoint102: received SLAC_PARAM.CNF");
   if (iAmPev) {
     if (pevSequenceState==STATE_WAITING_FOR_SLAC_PARAM_CNF) { //  we were waiting for the SlacParamCnf
       pevSequenceDelayCycles = 4; // original Ioniq is waiting 200ms
@@ -342,7 +342,7 @@ void evaluateSlacMatchCnf(void) {
             addToTrace("[PEVSLAC] From SlacMatchCnf, got network membership key (NMK) " + s);
             // use the extracted NMK and NID to set the key in the adaptor:
             composeSetKey();
-            addToTrace("[PEVSLAC] transmitting CM_SET_KEY.REQ");
+            addToTrace("[PEVSLAC] Checkpoint170: transmitting CM_SET_KEY.REQ");
             myEthTransmit();
             if (pevSequenceState==STATE_WAITING_FOR_SLAC_MATCH_CNF) { // we were waiting for finishing the SLAC_MATCH.CNF and SET_KEY.REQ
                 slac_enterState(STATE_WAITING_FOR_RESTART2);
@@ -575,7 +575,7 @@ void runSlacSequencer(void) {
     } 
     if (pevSequenceState==STATE_READY_FOR_SLAC) {
             showStatus("Starting SLAC", "pevState");
-            addToTrace("[PEVSLAC] Sending SLAC_PARAM.REQ...");
+            addToTrace("[PEVSLAC] Checkpoint100: Sending SLAC_PARAM.REQ...");
             composeSlacParamReq();
             myEthTransmit();                
             slac_enterState(STATE_WAITING_FOR_SLAC_PARAM_CNF);
@@ -664,7 +664,7 @@ void runSlacSequencer(void) {
 			      }
             composeSlacMatchReq();
             showStatus("SLAC match", "pevState");
-            addToTrace("[PEVSLAC] transmitting SLAC_MATCH.REQ...");
+            addToTrace("[PEVSLAC] Checkpoint150: transmitting SLAC_MATCH.REQ...");
             myEthTransmit();
             slac_enterState(STATE_WAITING_FOR_SLAC_MATCH_CNF);
             return;
@@ -744,7 +744,7 @@ void runSdpStateMachine(void) {
   if (sdp_state==0) {
       // Next step is to discover the chargers communication controller (SECC) using discovery protocol (SDP).
       showStatus("SDP ongoing", "pevState");
-      addToTrace("[SDP] Starting SDP.");
+      addToTrace("[SDP] Checkpoint200: Starting SDP.");
       pevSequenceDelayCycles=0;
       SdpRepetitionCounter = 50; // prepare the number of retries for the SDP. The more the better.
       sdp_state = 1;

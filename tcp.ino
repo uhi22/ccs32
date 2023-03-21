@@ -109,7 +109,7 @@ void evaluateTcpPacket(void) {
 }
 
 void tcp_connect(void) {
-	addToTrace("[TCP] connecting");	
+  addToTrace("[TCP] Checkpoint301: connecting");
   TcpTransmitPacket[20] = 0x02; /* options: 12 bytes, just copied from the Win10 notebook trace */
   TcpTransmitPacket[21] = 0x04;
   TcpTransmitPacket[22] = 0x05;
@@ -134,7 +134,7 @@ void tcp_connect(void) {
 }
 
 void tcp_sendFirstAck(void) {
-	addToTrace("[TCP] sending first ACK");
+  addToTrace("[TCP] sending first ACK");
   tcpHeaderLen = 20; /* 20 bytes normal header, no options */
   tcpPayloadLen = 0;   /* only the TCP header, no data is in the first ACK message. */
   tcp_prepareTcpHeader(TCP_FLAG_ACK);	
@@ -142,7 +142,7 @@ void tcp_sendFirstAck(void) {
 }
 
 void tcp_sendAck(void) {
-	//addToTrace("[TCP] sending ACK");
+  //addToTrace("[TCP] sending ACK");
   tcpHeaderLen = 20; /* 20 bytes normal header, no options */
   tcpPayloadLen = 0;   /* only the TCP header, no data is in the first ACK message. */
   tcp_prepareTcpHeader(TCP_FLAG_ACK);	
@@ -152,7 +152,7 @@ void tcp_sendAck(void) {
 void tcp_transmit(void) {
   //showBuffer(tcpPayload, tcpPayloadLen);
   if (tcpState == TCP_STATE_ESTABLISHED) {  
-	  //addToTrace("[TCP] sending data");
+    //addToTrace("[TCP] sending data");
     tcpHeaderLen = 20; /* 20 bytes normal header, no options */
     if (tcpPayloadLen+tcpHeaderLen<TCP_TRANSMIT_PACKET_LEN) {    
       memcpy(&TcpTransmitPacket[tcpHeaderLen], tcpPayload, tcpPayloadLen);
@@ -167,7 +167,7 @@ void tcp_transmit(void) {
 
 void tcp_testSendData(void) {
   if (tcpState == TCP_STATE_ESTABLISHED) {  
-	  addToTrace("[TCP] sending data");
+    addToTrace("[TCP] sending data");
     tcpHeaderLen = 20; /* 20 bytes normal header, no options */
     tcpPayloadLen = 3;   /* demo length */
     TcpTransmitPacket[tcpHeaderLen] = 0x55; /* demo data */
@@ -186,47 +186,47 @@ void tcp_prepareTcpHeader(uint8_t tcpFlag) {
   // # TCP header needs at least 24 bytes:
   // 2 bytes source port
   // 2 bytes destination port
-	// 4 bytes sequence number
-	// 4 bytes ack number
-	// 4 bytes DO/RES/Flags/Windowsize
-	// 2 bytes checksum
-	// 2 bytes urgentPointer
-	// n*4 bytes options/fill (empty for the ACK frame and payload frames)
+  // 4 bytes sequence number
+  // 4 bytes ack number
+  // 4 bytes DO/RES/Flags/Windowsize
+  // 2 bytes checksum
+  // 2 bytes urgentPointer
+  // n*4 bytes options/fill (empty for the ACK frame and payload frames)
   TcpTransmitPacket[0] = (uint8_t)(evccPort >> 8); /* source port */
   TcpTransmitPacket[1] = (uint8_t)(evccPort);
   TcpTransmitPacket[2] = (uint8_t)(seccTcpPort >> 8); /* destination port */
   TcpTransmitPacket[3] = (uint8_t)(seccTcpPort);
-	
+
   TcpTransmitPacket[4] = (uint8_t)(TcpSeqNr>>24); /* sequence number */
   TcpTransmitPacket[5] = (uint8_t)(TcpSeqNr>>16);
   TcpTransmitPacket[6] = (uint8_t)(TcpSeqNr>>8);
   TcpTransmitPacket[7] = (uint8_t)(TcpSeqNr);
-	
+
   TcpTransmitPacket[8] = (uint8_t)(TcpAckNr>>24); /* ack number */
   TcpTransmitPacket[9] = (uint8_t)(TcpAckNr>>16);
   TcpTransmitPacket[10] = (uint8_t)(TcpAckNr>>8);
   TcpTransmitPacket[11] = (uint8_t)(TcpAckNr);
-	TcpTransmitPacketLen = tcpHeaderLen + tcpPayloadLen; 
+  TcpTransmitPacketLen = tcpHeaderLen + tcpPayloadLen; 
   TcpTransmitPacket[12] = (tcpHeaderLen/4) << 4; /* High-nibble: DataOffset in 4-byte-steps. Low-nibble: Reserved=0. */
 
-	TcpTransmitPacket[13] = tcpFlag;
-	#define TCP_RECEIVE_WINDOW 1000 /* number of octetts we are able to receive */
+  TcpTransmitPacket[13] = tcpFlag;
+  #define TCP_RECEIVE_WINDOW 1000 /* number of octetts we are able to receive */
   TcpTransmitPacket[14] = (uint8_t)(TCP_RECEIVE_WINDOW>>8);
   TcpTransmitPacket[15] = (uint8_t)(TCP_RECEIVE_WINDOW);
-	
+
   // checksum will be calculated afterwards
   TcpTransmitPacket[16] = 0;
   TcpTransmitPacket[17] = 0;
-	
+
   TcpTransmitPacket[18] = 0; /* 16 bit urgentPointer. Always zero in our case. */
   TcpTransmitPacket[19] = 0;
-	
+
   checksum = calculateUdpAndTcpChecksumForIPv6(TcpTransmitPacket, TcpTransmitPacketLen, EvccIp, SeccIp, NEXT_TCP); 
   TcpTransmitPacket[16] = (uint8_t)(checksum >> 8);
   TcpTransmitPacket[17] = (uint8_t)(checksum);
 }
 
-        
+
 void tcp_packRequestIntoIp(void) {
         // # embeds the TCP into the lower-layer-protocol: IP, Ethernet
         uint8_t i;
