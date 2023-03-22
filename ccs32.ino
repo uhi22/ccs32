@@ -79,7 +79,7 @@ void task1s(void) {
   //pev_testExiSend(); /* just for testing, send some EXI data. */
   //tcp_testSendData(); /* just for testing, send something with TCP. */
   //sendTestFrame(); /* just for testing, send something on the Ethernet. */
-
+  Serial.println(ESP.getFreeHeap());
 }
 
 /**********************************************************/

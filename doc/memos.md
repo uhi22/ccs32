@@ -30,7 +30,8 @@ Approach for making an own ethernet handler software: Pick the interesting parts
 - ESP_IDF_VERSION_MAJOR > 3 is true.
 
 Where is the function esp_eth_phy_new_lan87xx() implemented?
-In the lib libesp_eth.a. No source code found for this.
+In the lib C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\tools\sdk\esp32\lib\libesp_eth.a. No source code found for this in the arduino installation. But it is on Github, and in the
+Espressif IDF, see below.
 
 How to configure the ethernet to call a callback function like in WiFiGeneric.cpp _arduino_event_cb? Answer: By calling esp_event_handler_instance_register().
 
@@ -62,7 +63,45 @@ https://github.com/espressif/esp-idf/issues/9594
 and
 https://github.com/espressif/esp-idf/issues/9308
 Maybe the fix https://github.com/espressif/esp-idf/commit/785f154f5652b353c460ec47cb90aa404207918c needs to be introduced.
+Also https://github.com/espressif/esp-idf/commit/6fff81d9700c6f615b711f7581329eea3566f32a contains receive-buffer-improvements.
 Need to check which version is used in the Arduino package.
+
+### Where is the esp_eth_driver code?
+On https://github.com/espressif/esp-idf/ there is in components/esp_eth/src/esp_eth.c an implementation of
+e.g. esp_eth_driver_install() and esp_eth_transmit(). So far so good. But esp_eth_phy_new_lan8720() is not available there.
+At least we have esp_eth_phy_new_lan87xx(), and this is mentioned in `C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\tools\sdk\esp32\include\esp_eth\include\esp_eth_phy.h`
+as a backward-compatibility-name for esp_eth_phy_new_lan87xx().
+
+After installing the Espressif IDF into C:\esp-idf, the ethernet driver is also here:
+C:\esp-idf\components\esp_eth\
+And in this, we find `emac_esp32_rx_task()`, which raises `ESP_LOGE(TAG, "no mem for receive buffer")`
+
+After building the helloworld example according to
+https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/windows-setup.html#get-started-windows-first-steps,
+`C:\UwesTechnik\espExamples\hello_world>idf.py build`
+we find a new built lib here:
+`C:\UwesTechnik\espExamples\hello_world\build\esp-idf\esp_eth\libesp_eth.a`
+
+Is it possible to simply copy this into the Arduino path
+`C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\tools\sdk\esp32\lib`?
+
+In the Arduino IDE, this leads to multiple linker error due to missing symbols, e.g. undefined reference to emac_hal_transmit_multiple_buf_frame. Means: The libs in the Arduino path and the latest IDF libs are not compatible.
+
+The solution may be here: https://github.com/espressif/arduino-esp32/releases It says, that the esp-arduino2.0.7 (which we use), is based on ESP-IDF 4.4.4. This is older than the IDF 5.0 which we installed for testing.
+
+Installed the IDF4.4.4 with the original windows installer.
+Added some debug output into C:\esp-idf-v4.4.4\components\esp_eth\src\esp_eth_mac_esp.c, function emac_esp32_rx_task().
+Built the example `C:\UwesTechnik\espExamples\hello_world>idf.py build`
+Copied the newly built libesp_eth.a from C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\tools\sdk\esp32\lib
+into `C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\tools\sdk\esp32\lib`.
+In Arduino IDE, built, download. Result: The build works, the patch is visible. --> Possibility to debug and fix the ethernet issue.
+
+### How to measure free heap space?
+Serial.println(ESP.getFreeHeap())
+
+### How does the eth driver work?
+* lan87xx_init() -> esp_eth_phy_802_3_basic_phy_init(). This makes power on (eth_phy_802_3_pwrctl()) and reset (eth_phy_802_3_reset())
+
 
 # Logging
 
