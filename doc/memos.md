@@ -92,9 +92,42 @@ The solution may be here: https://github.com/espressif/arduino-esp32/releases It
 Installed the IDF4.4.4 with the original windows installer.
 Added some debug output into C:\esp-idf-v4.4.4\components\esp_eth\src\esp_eth_mac_esp.c, function emac_esp32_rx_task().
 Built the example `C:\UwesTechnik\espExamples\hello_world>idf.py build`
-Copied the newly built libesp_eth.a from C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\tools\sdk\esp32\lib
+Copied the newly built libesp_eth.a from C:\UwesTechnik\espExamples\hello_world\build\esp-idf\esp_eth\libesp_eth.a
 into `C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\tools\sdk\esp32\lib`.
 In Arduino IDE, built, download. Result: The build works, the patch is visible. --> Possibility to debug and fix the ethernet issue.
+
+Finding: The emac_esp32_rx_task() allocates for each received ethernet package a buffer. It fills this buffer by calling emac_esp32_receive(),
+and if this works, gives the buffer to emac->eth->stack_input(). It is not clear, which instance is responsible for freeing this buffer afterwards.
+Instrumented the code, and using ESP.getFreeHeap() found out, that each call of the emac_esp32_rx_task() eats ~1500 bytes of heap, without
+freeing them.
+
+What does stack_input() do with the buffer?
+(Searching in C:\esp-idf-v4.4.4\components)
+There is a function eth_stack_input() in esp_eth.c, which calls eth_driver->stack_input if its not NULL. Otherwise frees the buffer -> ok.
+The eth_driver->stack_input is set in esp_eth_update_input_path() just as the second parameter. Means: That's the handler of the application.
+Conclusion: The receive handler of the application is responsible to free the buffer.
+
+After adding the free(buffer) in the applications rx handler, the issue with the eated heap is solved.
+
+But still, there is
+```
+    [292360][V][ccs32.ino:49] addToTrace(): [PEVSLAC] received GET_SW.CNF
+    Guru Meditation Error: Core  1 panic'ed (Unhandled debug exception). 
+    Debug exception reason: Stack canary watchpoint triggered (emac_rx) 
+    Core  1 register dump:
+    PC      : 0x4008d0db  PS      : 0x00060036  A0      : 0x8008bb48  A1      : 0x3ffb4440  
+    A2      : 0x3ffbf338  A3      : 0xb33fffff  A4      : 0x0000cdcd  A5      : 0x00060023  
+    A6      : 0x00060023  A7      : 0x0000abab  A8      : 0xb33fffff  A9      : 0xffffffff  
+    A10     : 0x00060020  A11     : 0x00000001  A12     : 0x800844b6  A13     : 0x3ffbf28c  
+    A14     : 0x007bf338  A15     : 0x003fffff  SAR     : 0x00000004  EXCCAUSE: 0x00000001  
+    EXCVADDR: 0x00000000  LBEG    : 0x40088549  LEND    : 0x40088559  LCOUNT  : 0xfffffffd  
+    
+    Backtrace: 0x4008d0d8:0x3ffb4440 0x4008bb45:0x3ffb4480 0x4008a400:0x3ffb44b0 0x4008a3b0:0xa5a5a5a5 |<-CORRUPTED
+```
+
+## Is it possible to share global variables between the ethernet driver and the application?
+Yes. Simply in the driver define them, and in the application declare them as external. Works fine.
+ 
 
 ### How to measure free heap space?
 Serial.println(ESP.getFreeHeap())

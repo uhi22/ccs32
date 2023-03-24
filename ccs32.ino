@@ -19,6 +19,10 @@
 #include "src/exi/projectExiConnector.h"
 
 /**********************************************************/
+/* extern variables for debugging */
+extern uint32_t uwe_rxMallocAccumulated;
+extern uint32_t uwe_rxCounter;
+/**********************************************************/
 
 #define LED 2 /* The IO2 is used for an LED. This LED is externally added to the WT32-ETH01 board. */
 uint32_t currentTime;
@@ -26,6 +30,8 @@ uint32_t lastTime1s;
 uint32_t lastTime30ms;
 uint32_t nCycles30ms;
 uint8_t ledState;
+uint32_t initialHeapSpace;
+uint32_t eatenHeapSpace;
 
 /**********************************************************/
 /* The logging macros and functions */
@@ -79,7 +85,9 @@ void task1s(void) {
   //pev_testExiSend(); /* just for testing, send some EXI data. */
   //tcp_testSendData(); /* just for testing, send something with TCP. */
   //sendTestFrame(); /* just for testing, send something on the Ethernet. */
-  Serial.println(ESP.getFreeHeap());
+  eatenHeapSpace = initialHeapSpace - ESP.getFreeHeap();
+  Serial.println("EatenHeapSpace=" + String(eatenHeapSpace) + " uwe_rxCounter=" + String(uwe_rxCounter) + " uwe_rxMallocAccumulated=" + String(uwe_rxMallocAccumulated) );
+  
 }
 
 /**********************************************************/
@@ -100,6 +108,7 @@ void setup() {
   lastTime30ms = currentTime;
   lastTime1s = currentTime;
   log_v("Setup finished.");
+  initialHeapSpace=ESP.getFreeHeap();
 }
 
 void loop() {

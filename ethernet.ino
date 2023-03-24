@@ -44,7 +44,9 @@ esp_err_t myEthernetReceiveCallback(esp_eth_handle_t hdl, uint8_t *buffer, uint3
   uint32_t L;
   L=length;
   if (L>=MY_ETH_RECEIVE_BUFFER_LEN) L=MY_ETH_RECEIVE_BUFFER_LEN;
-  memcpy(myreceivebuffer, buffer, L); 
+  memcpy(myreceivebuffer, buffer, L); /* possible improvement: copy of buffer is not really necessary. We could directly work
+                                         on the buffer provided by the ethernet driver. This was allocated especially for each
+                                         single received message, and will be present until the application frees it. */ 
   myreceivebufferLen=L;
   if (etherType == 0x88E1) { /* it is a HomePlug message */
     //Serial.println("Its a HomePlug message.");
@@ -53,6 +55,7 @@ esp_err_t myEthernetReceiveCallback(esp_eth_handle_t hdl, uint8_t *buffer, uint3
       ipv6_evaluateReceivedPacket();
   }
   nInMyEthernetReceiveCallback--;
+  free(buffer); /* We need to free the buffer, because the driver will NOT do this (at least in Arduino 2.0.4 with esp-idf4.4.4) */
   return ESP_OK;       
 }
 
