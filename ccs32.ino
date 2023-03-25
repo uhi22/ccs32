@@ -52,6 +52,19 @@ void addToTrace(String strTrace) {
 /**********************************************************/
 /* The global status printer */
 void publishStatus(String line1, String line2 = "", String line3 = "") {
+  uint32_t t;
+  uint16_t minutes, seconds;
+  String strMinutes, strSeconds;
+  /* show the uptime in the third line */  
+  t = millis()/1000;
+  minutes = t / 60;
+  seconds = t - (minutes*60);
+  strMinutes = String(minutes);
+  strSeconds = String(seconds);  
+  if (strMinutes.length()<2) strMinutes = "0" + strMinutes;
+  if (strSeconds.length()<2) strSeconds = "0" + strSeconds;
+  if (line3.length()==0) line3 = "    up";
+  line3 = line3 + " " + strMinutes + ":" + strSeconds;
   hardwareInterface_showOnDisplay(line1, line2, line3);
 }  
 
