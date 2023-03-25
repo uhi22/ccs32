@@ -1,6 +1,30 @@
 
 /* Hardware Interface module */
 
+#include <HardwareSerial.h>
+HardwareSerial mySerial(1); /* 0 would be the Serial which is used for Serial.print. 1 is the Serial2. 
+                               The pins can be freely chosen, see below. */
+/* TXD for display is IO17 according to the data sheet of the WT32-ETH01. */
+/* RXD (unused) is IO5 according to the data sheet of the WT32-ETH01. */
+#define TX2_PIN 17
+#define RX2_PIN 5
+
+
+void hardwareInterface_showOnDisplay(String s1, String s2, String s3) {
+  /* shows three lines on the display */
+  String s;
+  /* To address the display, each line starts with "lc" (short for "LCD").
+     Each line ends with an carriage return ("\n"). */
+  s = "lc" + s1 + "\n" + "lc" + s2 + "\n" + "lc" + s3 + "\n";
+  mySerial.println(s);
+}
+
+void hardwareInterface_initDisplay(void) {
+  mySerial.begin(19200, SERIAL_8N1, RX2_PIN, TX2_PIN);
+  //s = "lc" + s1 + "\n" + "lc" + s2 + "\n" + "lc" + s3 + "\n"  
+  mySerial.println("lcHello :-)\nlcfrom\nlcWT32-ETH");
+}
+
 void hardwareInterface_simulatePreCharge(void) {
 }
 

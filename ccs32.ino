@@ -50,9 +50,10 @@ void addToTrace(String strTrace) {
 }
 
 /**********************************************************/
-/* stubs for later implementation */
-#define publishStatus(x)
-#define showStatus(x, y)
+/* The global status printer */
+void publishStatus(String line1, String line2 = "", String line3 = "") {
+  hardwareInterface_showOnDisplay(line1, line2, line3);
+}  
 
 /**********************************************************/
 /* The tasks */
@@ -103,6 +104,7 @@ void setup() {
   }
   homeplugInit();
   pevStateMachine_Init();
+  hardwareInterface_initDisplay();
   /* The time for the tasks starts here. */
   currentTime = millis();
   lastTime30ms = currentTime;

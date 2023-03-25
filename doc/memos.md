@@ -3,10 +3,13 @@
 
 WT32-ETH01: This is an ESP32 based board with an LAN8720A Ethernet port.
 
-Decsription: http://www.wireless-tag.com/portfolio/wt32-eth01/
+Description: http://www.wireless-tag.com/portfolio/wt32-eth01/
 
 Data sheet: http://www.wireless-tag.com/wp-content/uploads/2022/10/WT32-ETH01_datasheet_V1.3-en.pdf
 
+Pins:
+TXD for display is IO17 according to the data sheet of the WT32-ETH01.
+RXD (unused) is IO5 according to the data sheet of the WT32-ETH01.
 
 # Development environment
 
@@ -124,6 +127,47 @@ But still, there is
     
     Backtrace: 0x4008d0d8:0x3ffb4440 0x4008bb45:0x3ffb4480 0x4008a400:0x3ffb44b0 0x4008a3b0:0xa5a5a5a5 |<-CORRUPTED
 ```
+or
+```
+    [217353][V][ccs32.ino:49] addToTrace(): [ModemFinder] Starting modem search
+    Guru Meditation Error: Core  1 panic'ed (Unhandled debug exception). 
+    Debug exception reason: Stack canary watchpoint triggered (emac_rx) 
+    Core  1 register dump:
+    PC      : 0x4008d0db  PS      : 0x00060036  A0      : 0x8008bb48  A1      : 0x3ffb4440  
+    A2      : 0x3ffbf338  A3      : 0xb33fffff  A4      : 0x0000cdcd  A5      : 0x00060023  
+    A6      : 0x00060023  A7      : 0x0000abab  A8      : 0xb33fffff  A9      : 0xffffffff  
+    A10     : 0x00000003  A11     : 0x00060023  A12     : 0x800844b6  A13     : 0x3ffbf28c  
+    A14     : 0x007bf338  A15     : 0x003fffff  SAR     : 0x00000004  EXCCAUSE: 0x00000001  
+    EXCVADDR: 0x00000000  LBEG    : 0x40088549  LEND    : 0x40088559  LCOUNT  : 0xfffffffd  
+    
+    Backtrace: 0x4008d0d8:0x3ffb4440 0x4008bb45:0x3ffb4480 0x4008a400:0x3ffb44b0 0x4008a3b0:0xa5a5a5a5 |<-CORRUPTED
+```
+
+
+
+## Is it possible to extract the function names out of a backtrace?
+From https://esp32.com/viewtopic.php?t=23567:
+xtensa-esp32-elf-addr2line -e path_to_your.elf 0x400d144c:0x3ffb1e60 0x400d6a1d:0x3ffb1fb0 0x4008b1a6:0x3ffb1fd0
+
+xtensa-esp32-elf-addr2line -e  C:\UwesTechnik\espExamples\hello_world\build\hello_world.elf 0x400d4b68:0x3ffb1e60
+
+Where is the elf for the Arduino? Here:
+C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf
+
+So our complete command line is:
+xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x4008d0d8:0x3ffb4440 0x4008bb45:0x3ffb4480 0x4008a400:0x3ffb44b0 0x4008a3b0:0xa5a5a5a5
+
+And this leads to
+
+```
+    C:\esp-idf-v4.4.4>xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x4008d0d8:0x3ffb4440 0x4008bb45:0x3ffb4480 0x4008a400:0x3ffb44b0 0x4008a3b0:0xa5a5a5a5
+    /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/esp_hw_support/include/soc/compare_set.h:25
+    /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/freertos/port/xtensa/include/freertos/portmacro.h:578
+    /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/freertos/port/xtensa/portasm.S:436
+    /Users/ficeto/Desktop/ESP32/ESP32S2/esp-idf-public/components/freertos/port/xtensa/portasm.S:231
+```
+
+
 
 ## Is it possible to share global variables between the ethernet driver and the application?
 Yes. Simply in the driver define them, and in the application declare them as external. Works fine.
@@ -134,6 +178,12 @@ Serial.println(ESP.getFreeHeap())
 
 ### How does the eth driver work?
 * lan87xx_init() -> esp_eth_phy_802_3_basic_phy_init(). This makes power on (eth_phy_802_3_pwrctl()) and reset (eth_phy_802_3_reset())
+* emac_hal_start() enables the DMA for rx and tx: emac_ll_start_stop_dma_receive() and emac_ll_start_stop_dma_transmit()
+
+* esp_emac_alloc_driver_obj() creates a task xTaskCreatePinnedToCore(emac_esp32_rx_task, "emac_rx",....)
+* The emac_esp32_rx_task() calls emac_esp32_receive()
+* emac_esp32_receive() calls emac_hal_receive_frame()
+* emac_hal_receive_frame() (in components/hal/emac_hal.c) uses the data which was filled by DMA and fills it into buffer.
 
 
 # Logging

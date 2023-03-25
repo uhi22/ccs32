@@ -574,7 +574,7 @@ void runSlacSequencer(void) {
         return;
     } 
     if (pevSequenceState==STATE_READY_FOR_SLAC) {
-            showStatus("Starting SLAC", "pevState");
+            publishStatus("Starting SLAC");
             addToTrace("[PEVSLAC] Checkpoint100: Sending SLAC_PARAM.REQ...");
             composeSlacParamReq();
             myEthTransmit();                
@@ -663,7 +663,7 @@ void runSlacSequencer(void) {
                 return;
 			      }
             composeSlacMatchReq();
-            showStatus("SLAC match", "pevState");
+            publishStatus("SLAC", "match");
             addToTrace("[PEVSLAC] Checkpoint150: transmitting SLAC_MATCH.REQ...");
             myEthTransmit();
             slac_enterState(STATE_WAITING_FOR_SLAC_MATCH_CNF);
@@ -743,7 +743,7 @@ void runSdpStateMachine(void) {
   /* The ConnectionLevel demands the SDP. */
   if (sdp_state==0) {
       // Next step is to discover the chargers communication controller (SECC) using discovery protocol (SDP).
-      showStatus("SDP ongoing", "pevState");
+      publishStatus("SDP ongoing");
       addToTrace("[SDP] Checkpoint200: Starting SDP.");
       pevSequenceDelayCycles=0;
       SdpRepetitionCounter = 50; // prepare the number of retries for the SDP. The more the better.

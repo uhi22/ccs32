@@ -61,7 +61,7 @@ void evaluateUdpPayload(void) {
                             }
                             //# Extract the TCP port, on which the charger will listen:
                             seccTcpPort = (((uint16_t)(udpPayload[8+16]))<<8) + udpPayload[8+16+1];
-                            showStatus("SDP finished", "pevState");
+                            publishStatus("SDP finished");
                             addToTrace("[SDP] Now we know the chargers IP.");
                             connMgr_SdpOk();
                     }

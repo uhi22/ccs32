@@ -472,7 +472,7 @@ void stateFunctionWaitForCableCheckResponse(void) {
             } else {    
                 // cable check not yet finished or finished with bad result -> try again
                 pev_numberOfCableCheckReq += 1;
-                //publishStatus("CbleChck ongoing", format(hardwareInterface.getInletVoltage(),".0f") + "V")
+                publishStatus("CbleChck ongoing", String(hardwareInterface_getInletVoltage()) + "V");
                 addToTrace("Will again send CableCheckReq");
                 pev_sendCableCheckReq();
                 // stay in the same state
@@ -517,7 +517,7 @@ void stateFunctionWaitForPreChargeResponse(void) {
             pev_sendPowerDeliveryReq(1); /* 1 is ON */
             pev_enterState(PEV_STATE_WaitForPowerDeliveryResponse);
         } else {
-            //publishStatus("PreChrge ongoing", format(hardwareInterface.getInletVoltage(), ".0f") + "V")
+            publishStatus("PreChrge ongoing", String(hardwareInterface_getInletVoltage()) + "V");
             addToTrace("Difference too big. Continuing PreCharge.");
             pev_sendPreChargeReq();
             pev_DelayCycles=15; // wait with the next evaluation approx half a second
@@ -581,7 +581,7 @@ void stateFunctionWaitForCurrentDemandResponse(void) {
             pev_enterState(PEV_STATE_WaitForPowerDeliveryResponse);
         } else {
             /* continue charging loop */
-            //publishStatus("Charging", format(hardwareInterface.getInletVoltage(), ".0f") + "V", format(hardwareInterface.getSoc(), ".1f") + "%")
+            publishStatus("Charging", String(hardwareInterface_getInletVoltage()) + "V", String(hardwareInterface_getSoc()) + "%");
             pev_sendCurrentDemandReq();
             pev_enterState(PEV_STATE_WaitForCurrentDemandResponse);
         }
