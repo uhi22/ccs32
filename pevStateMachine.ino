@@ -581,6 +581,7 @@ void stateFunctionWaitForCurrentDemandResponse(void) {
             pev_enterState(PEV_STATE_WaitForPowerDeliveryResponse);
         } else {
             /* continue charging loop */
+            hardwareInterface_simulateCharging();
             publishStatus("Charging", String(hardwareInterface_getInletVoltage()) + "V", String(hardwareInterface_getSoc()) + "%");
             pev_sendCurrentDemandReq();
             pev_enterState(PEV_STATE_WaitForCurrentDemandResponse);

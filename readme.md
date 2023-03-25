@@ -10,6 +10,12 @@ https://github.com/uhi22/pyPLC
 
 ## News / Change history / functional status
 
+### 2023-03-25 LC Display works
+- The three-line-OLED display (see https://github.com/uhi22/SerialToOLED) shows the charging progress.
+- Simulated charging works with simulated EVSE (Win10, pyPlc).
+- The main crash reason was a heap leakage because receive buffer was not free'd. This is fixed.
+- Sporadically still crashes: `panic'ed (Unhandled debug exception). Debug exception reason: Stack canary watchpoint triggered (emac_rx)`
+
 ### 2023-03-19 PEV state machine until Charging Loop
 With simulated EVSE (Win10, pyPlc) on the opposite end, the WT32-ETH01 makes the SLAC, SDP, NeighborDiscovery, TCP
 and the charging state machine. It runs until the charging loop.

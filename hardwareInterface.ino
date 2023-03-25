@@ -25,7 +25,16 @@ void hardwareInterface_initDisplay(void) {
   mySerial.println("lcHello :-)\nlcfrom\nlcWT32-ETH");
 }
 
+uint16_t hwIf_simulatedSoc_0p1;
+
 void hardwareInterface_simulatePreCharge(void) {
+}
+
+void hardwareInterface_simulateCharging(void) {
+  if (hwIf_simulatedSoc_0p1<1000) {
+    /* simulate increasing SOC */
+    hwIf_simulatedSoc_0p1++;
+  }
 }
 
 int16_t hardwareInterface_getInletVoltage(void) {
@@ -45,10 +54,13 @@ int16_t hardwareInterface_getChargingTargetCurrent(void) {
 }
 
 uint8_t hardwareInterface_getSoc(void) {
-  return 88;
+  /* SOC in percent */
+  return hwIf_simulatedSoc_0p1/10;
 }
 
-uint8_t hardwareInterface_getIsAccuFull(void) { return 0; }
+uint8_t hardwareInterface_getIsAccuFull(void) {
+    return (hwIf_simulatedSoc_0p1/10)>95;
+}
 
 void hardwareInterface_setPowerRelayOn(void) {
     
@@ -70,4 +82,5 @@ void hardwareInterface_setStateC(void) {
 }
 
 void hardwareInterface_resetSimulation(void) {
+    hwIf_simulatedSoc_0p1 = 200; /* 20% */
 }
