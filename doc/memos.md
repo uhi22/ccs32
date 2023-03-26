@@ -143,6 +143,51 @@ or
     Backtrace: 0x4008d0d8:0x3ffb4440 0x4008bb45:0x3ffb4480 0x4008a400:0x3ffb44b0 0x4008a3b0:0xa5a5a5a5 |<-CORRUPTED
 ```
 
+Similar issue is discussed here: https://esp32.com/viewtopic.php?t=26603
+After increasing the stack size mac_config.rx_task_stack_size = 4096, it seems to be more stable, but sporadically we get
+
+```
+    [566293][V][ccs32.ino:54] addToTrace(): (15 bytes)= 80 9a 2 0 40 80 c1 1 41 81 c2 10 c0 0 0 
+    Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+    Core  1 register dump:
+    PC      : 0x4012e9b4  PS      : 0x00060a30  A0      : 0x800ee0c8  A1      : 0x3ffb2090  
+    A2      : 0x3ffc37a4  A3      : 0x00000000  A4      : 0x00000022  A5      : 0x00000001  
+    A6      : 0x00000022  A7      : 0x3ffaf0a0  A8      : 0x00000000  A9      : 0x3ffb2070  
+    A10     : 0x3ffc37a4  A11     : 0x3ffaf0e0  A12     : 0x00000022  A13     : 0x3ffaf0c3  
+    A14     : 0x00000000  A15     : 0x00000000  SAR     : 0x00000019  EXCCAUSE: 0x0000001c  
+    EXCVADDR: 0x0000000c  LBEG    : 0x40088098  LEND    : 0x400880a3  LCOUNT  : 0x00000000  
+    Backtrace: 0x4012e9b1:0x3ffb2090 0x400ee0c5:0x3ffb20b0 0x400d2f22:0x3ffb20d0 0x400d3105:0x3ffb2120 0x400d7acd:0x3ffb21b0 0x400d7eb2:0x3ffb2210 0x400d7f42:0x3ffb2230 0x400d7f66:0x3ffb2250 0x400d7f8e:0x3ffb2270 0x400ef039:0x3ffb2290
+```
+and again
+```
+    Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+    Core  1 register dump:
+    PC      : 0x4012e9b4  PS      : 0x00060230  A0      : 0x800ee0c8  A1      : 0x3ffb20d0  
+    A2      : 0x3ffc37a4  A3      : 0x00000000  A4      : 0x00000021  A5      : 0x00000001  
+    A6      : 0x00000021  A7      : 0x3ffaf040  A8      : 0x00000000  A9      : 0x3ffb20b0  
+    A10     : 0x3ffc37a4  A11     : 0x3ffaf080  A12     : 0x00000021  A13     : 0x3ffaf062  
+    A14     : 0x0000000a  A15     : 0x00000000  SAR     : 0x00000019  EXCCAUSE: 0x0000001c  
+    EXCVADDR: 0x0000000c  LBEG    : 0x40088098  LEND    : 0x400880a3  LCOUNT  : 0x00000000  
+    Backtrace: 0x4012e9b1:0x3ffb20d0 0x400ee0c5:0x3ffb20f0 0x400d2f22:0x3ffb2110 0x400d3105:0x3ffb2160 0x400d3247:0x3ffb21f0 0x400d7f69:0x3ffb2250 0x400d7f8e:0x3ffb2270 0x400ef039:0x3ffb2290
+```
+in the case when we disconnect and reconnect the Ethernet on Laptop side.
+
+And
+```
+    [482970][V][ccs32.ino:54] addToTrace(): [CONNMGR] 0 0 0 0 150 151  --> 100
+    [483270][V][ccs32.ino:54] addToTrace(): [PEVSLAC] from 48 entering 0
+    Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+    Core  1 register dump:
+    PC      : 0x4012e9b4  PS      : 0x00060c30  A0      : 0x800ee0c8  A1      : 0x3ffb20d0  
+    A2      : 0x3ffc37a4  A3      : 0x00000000  A4      : 0x0000001e  A5      : 0x00000001  
+    A6      : 0x0000001e  A7      : 0x3ffaf040  A8      : 0x00000000  A9      : 0x3ffb20b0  
+    A10     : 0x3ffc37a4  A11     : 0x3ffaf0a0  A12     : 0x0000001e  A13     : 0x3ffaf05f  
+    A14     : 0x00000000  A15     : 0x303a3830  SAR     : 0x0000001d  EXCCAUSE: 0x0000001c  
+    EXCVADDR: 0x0000000c  LBEG    : 0x40088098  LEND    : 0x400880a3  LCOUNT  : 0x00000000  
+    Backtrace: 0x4012e9b1:0x3ffb20d0 0x400ee0c5:0x3ffb20f0 0x400d2f22:0x3ffb2110 0x400d3105:0x3ffb2160 0x400d3247:0x3ffb21f0 0x400d7f69:0x3ffb2250 0x400d7f8e:0x3ffb2270 0x400ef039:0x3ffb2290
+```
+in case we unpower and repower the chargers modem multiple times.
+
 
 
 ## Is it possible to extract the function names out of a backtrace?

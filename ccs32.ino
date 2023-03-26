@@ -20,8 +20,8 @@
 
 /**********************************************************/
 /* extern variables for debugging */
-extern uint32_t uwe_rxMallocAccumulated;
-extern uint32_t uwe_rxCounter;
+//extern uint32_t uwe_rxMallocAccumulated;
+//extern uint32_t uwe_rxCounter;
 /**********************************************************/
 
 #define LED 2 /* The IO2 is used for an LED. This LED is externally added to the WT32-ETH01 board. */
@@ -32,6 +32,11 @@ uint32_t nCycles30ms;
 uint8_t ledState;
 uint32_t initialHeapSpace;
 uint32_t eatenHeapSpace;
+String globalLine1;
+String globalLine2;
+String globalLine3;
+uint16_t counterForDisplayUpdate;
+
 
 /**********************************************************/
 /* The logging macros and functions */
@@ -54,7 +59,7 @@ void addToTrace(String strTrace) {
 void publishStatus(String line1, String line2 = "", String line3 = "") {
   uint32_t t;
   uint16_t minutes, seconds;
-  String strMinutes, strSeconds;
+  String strMinutes, strSeconds, strLine3extended;
   /* show the uptime in the third line */  
   t = millis()/1000;
   minutes = t / 60;
@@ -64,9 +69,21 @@ void publishStatus(String line1, String line2 = "", String line3 = "") {
   if (strMinutes.length()<2) strMinutes = "0" + strMinutes;
   if (strSeconds.length()<2) strSeconds = "0" + strSeconds;
   if (line3.length()==0) line3 = "    up";
-  line3 = line3 + " " + strMinutes + ":" + strSeconds;
-  hardwareInterface_showOnDisplay(line1, line2, line3);
+  strLine3extended = line3 + " " + strMinutes + ":" + strSeconds;
+  hardwareInterface_showOnDisplay(line1, line2, strLine3extended);
+  globalLine1=line1;
+  globalLine2=line2;
+  globalLine3=line3;
+  counterForDisplayUpdate=30; /* 30*30ms=900ms until forced cyclic update of the LCD */  
 }  
+
+void cyclicLcdUpdate(void) {
+  if (counterForDisplayUpdate>0) {
+    counterForDisplayUpdate--;  
+  } else {
+    publishStatus(globalLine1, globalLine2, globalLine3);
+  }
+}
 
 /**********************************************************/
 /* The tasks */
@@ -80,6 +97,7 @@ void task30ms(void) {
   runSdpStateMachine();
   tcp_Mainfunction();
   pevStateMachine_Mainfunction();
+  cyclicLcdUpdate();
 }
 
 /* This task runs once a second. */
@@ -100,8 +118,8 @@ void task1s(void) {
   //tcp_testSendData(); /* just for testing, send something with TCP. */
   //sendTestFrame(); /* just for testing, send something on the Ethernet. */
   eatenHeapSpace = initialHeapSpace - ESP.getFreeHeap();
-  Serial.println("EatenHeapSpace=" + String(eatenHeapSpace) + " uwe_rxCounter=" + String(uwe_rxCounter) + " uwe_rxMallocAccumulated=" + String(uwe_rxMallocAccumulated) );
-  
+  //Serial.println("EatenHeapSpace=" + String(eatenHeapSpace) + " uwe_rxCounter=" + String(uwe_rxCounter) + " uwe_rxMallocAccumulated=" + String(uwe_rxMallocAccumulated) );
+  Serial.println("EatenHeapSpace=" + String(eatenHeapSpace));
 }
 
 /**********************************************************/

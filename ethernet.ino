@@ -94,6 +94,7 @@ bool initEth(void) {
   mac_config.smi_mdc_gpio_num = mdc;
   mac_config.smi_mdio_gpio_num = mdio;
   mac_config.sw_reset_timeout_ms = 1000;
+  mac_config.rx_task_stack_size = 4096; /* discussed in https://esp32.com/viewtopic.php?t=26603. Default 2048 may cause stack canary failure. */
     
   #ifdef VERBOSE_INIT_ETH
     log_v("calling esp_eth_mac_new_esp32");

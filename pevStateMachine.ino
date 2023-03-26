@@ -371,7 +371,7 @@ void stateFunctionWaitForContractAuthenticationResponse(void) {
         // Or, the authorization is finished. This is shown by EVSEProcessing=Finished.
         if (dinDocDec.V2G_Message.Body.ContractAuthenticationRes.EVSEProcessing == dinEVSEProcessingType_Finished) {             
             publishStatus("Auth finished");
-            addToTrace("It is Finished. Will send ChargeParameterDiscoveryReq");
+            addToTrace("Checkpoint538: Auth is Finished. Will send ChargeParameterDiscoveryReq");
             pev_sendChargeParameterDiscoveryReq();
             pev_numberOfChargeParameterDiscoveryReq = 1; // first message
             pev_enterState(PEV_STATE_WaitForChargeParameterDiscoveryResponse);
@@ -413,7 +413,7 @@ void stateFunctionWaitForChargeParameterDiscoveryResponse(void) {
         // (B) The charger finished to tell the charge parameters.
         if (dinDocDec.V2G_Message.Body.ChargeParameterDiscoveryRes.EVSEProcessing == dinEVSEProcessingType_Finished) {
             publishStatus("ChargeParams discovered");
-            addToTrace("It is Finished. Will change to state C and send CableCheckReq.");
+            addToTrace("Checkpoint550: It is Finished. Will change to state C and send CableCheckReq.");
             // pull the CP line to state C here:
             hardwareInterface_setStateC();
             pev_sendCableCheckReq();
@@ -539,7 +539,7 @@ void stateFunctionWaitForPowerDeliveryResponse(void) {
     if (dinDocDec.V2G_Message.Body.PowerDeliveryRes_isUsed) {
         if (pev_wasPowerDeliveryRequestedOn) {
             publishStatus("PwrDelvy ON success");
-            addToTrace("Starting the charging loop with CurrentDemandReq");
+            addToTrace("Checkpoint700: Starting the charging loop with CurrentDemandReq");
             pev_sendCurrentDemandReq();
             pev_enterState(PEV_STATE_WaitForCurrentDemandResponse);
         } else {
