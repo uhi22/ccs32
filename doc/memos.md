@@ -75,8 +75,8 @@ e.g. esp_eth_driver_install() and esp_eth_transmit(). So far so good. But esp_et
 At least we have esp_eth_phy_new_lan87xx(), and this is mentioned in `C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\tools\sdk\esp32\include\esp_eth\include\esp_eth_phy.h`
 as a backward-compatibility-name for esp_eth_phy_new_lan87xx().
 
-After installing the Espressif IDF into C:\esp-idf, the ethernet driver is also here:
-C:\esp-idf\components\esp_eth\
+After installing the Espressif IDF into C:\esp-idf-v4.4.4, the ethernet driver is also here:
+C:\esp-idf-v4.4.4\components\esp_eth\
 And in this, we find `emac_esp32_rx_task()`, which raises `ESP_LOGE(TAG, "no mem for receive buffer")`
 
 After building the helloworld example according to
@@ -188,7 +188,135 @@ And
 ```
 in case we unpower and repower the chargers modem multiple times.
 
+To evaluate this, we use
+xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x4012e9b1:0x3ffb20d0 0x400ee0c5:0x3ffb20f0 0x400d2f22:0x3ffb2110 0x400d3105:0x3ffb2160 0x400d3247:0x3ffb21f0 0x400d7f69:0x3ffb2250 0x400d7f8e:0x3ffb2270 0x400ef039:0x3ffb2290
+and get:
 
+```
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/WString.h:326
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/Print.cpp:188
+    C:\UwesTechnik\ccs32/hardwareInterface.ino:19
+    C:\UwesTechnik\ccs32/ccs32.ino:73 (discriminator 5)
+    C:\UwesTechnik\ccs32/ccs32.ino:84 (discriminator 4)
+    C:\UwesTechnik\ccs32/ccs32.ino:100
+    C:\UwesTechnik\ccs32/ccs32.ino:152
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/main.cpp:50
+```
+which tells us task30ms()->cyclicLcdUpdate()->publishStatus()->hardwareInterface_showOnDisplay()->mySerial.println()->print()->len().
+
+And for the PC 0x4012e9b4
+xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x4012e9b4
+
+```
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/Print.h:72
+```
+which is the write() if the Print() class.
+
+After commenting-out the cyclic LCD update, we run into:
+```
+    108210][V][ccs32.ino:54] addToTrace(): [PEVSLAC] from 48 entering 0
+    [108330][V][ccs32.ino:54] addToTrace(): [ModemFinder] Number of modems:47
+    Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+
+    Core  1 register dump:
+    PC      : 0x4012e904  PS      : 0x00060230  A0      : 0x800ee048  A1      : 0x3ffb20d0  
+    A2      : 0x3ffc37a4  A3      : 0x00000000  A4      : 0x0000001e  A5      : 0x00000001  
+    A6      : 0x0000001e  A7      : 0x3ffaf0a4  A8      : 0x00000000  A9      : 0x3ffb20b0  
+    A10     : 0x3ffc37a4  A11     : 0x3ffaf0d4  A12     : 0x0000001e  A13     : 0x3ffaf0c3  
+    A14     : 0x00000000  A15     : 0x00000000  SAR     : 0x0000001d  EXCCAUSE: 0x0000001c  
+    EXCVADDR: 0x0000000c  LBEG    : 0x40088098  LEND    : 0x400880a3  LCOUNT  : 0x00000000  
+    Backtrace: 0x4012e901:0x3ffb20d0 0x400ee045:0x3ffb20f0 0x400d2f4e:0x3ffb2110 0x400d3131:0x3ffb2160 0x400d4eb9:0x3ffb21f0 0x400d7eda:0x3ffb2250 0x400d7f0e:0x3ffb2270 0x400eefb9:0x3ffb2290
+```
+
+```
+    xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x4012e901:0x3ffb20d0 0x400ee045:0x3ffb20f0 0x400d2f4e:0x3ffb2110 0x400d3131:0x3ffb2160 0x400d4eb9:0x3ffb21f0 0x400d7eda:0x3ffb2250 0x400d7f0e:0x3ffb2270 0x400eefb9:0x3ffb2290
+
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/WString.h:326
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/Print.cpp:188
+    C:\UwesTechnik\ccs32/hardwareInterface.ino:19
+    C:\UwesTechnik\ccs32/ccs32.ino:73 (discriminator 5)
+    C:\UwesTechnik\ccs32/modemFinder.ino:26 (discriminator 4)
+    C:\UwesTechnik\ccs32/ccs32.ino:95
+    C:\UwesTechnik\ccs32/ccs32.ino:152
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/main.cpp:50
+```
+
+Which is task30ms()->modemFinder_Mainfunction()->publishStatus()->hardwareInterface_showOnDisplay()->mySerial.println->print()->len().
+
+The LoadProhibited means: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/fatal-errors.html
+With EXCVADDR: 0x0000000c means, the software wanted to read from address 0x0c.
+"If this address is close to zero, it usually means that the application has attempted to access a member of a structure, but the pointer to the structure is NULL. "
+
+```
+    Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+    Core  1 register dump:
+    PC      : 0x4012e8e0  PS      : 0x00060830  A0      : 0x800ee024  A1      : 0x3ffb2130  
+    A2      : 0x3ffc37a4  A3      : 0x00000000  A4      : 0x0000001a  A5      : 0x00000001  
+    A6      : 0x0000001a  A7      : 0x3ffaf040  A8      : 0x00000000  A9      : 0x3ffb2110  
+    A10     : 0x3ffc37a4  A11     : 0x3ffaf070  A12     : 0x0000001a  A13     : 0x3ffaf05b  
+    A14     : 0x00000000  A15     : 0x00000000  SAR     : 0x0000001d  EXCCAUSE: 0x0000001c  
+    EXCVADDR: 0x0000000c  LBEG    : 0x40088098  LEND    : 0x400880a3  LCOUNT  : 0x00000000  
+    Backtrace: 0x4012e8dd:0x3ffb2130 0x400ee021:0x3ffb2150 0x400d2f56:0x3ffb2170 0x400d315f:0x3ffb21c0 0x400d7ec5:0x3ffb2250 0x400d7eea:0x3ffb2270 0x400eef95:0x3ffb2290
+```
+
+```
+    xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x4012e8dd:0x3ffb2130 0x400ee021:0x3ffb2150 0x400d2f56:0x3ffb2170 0x400d315f:0x3ffb21c0 0x400d7ec5:0x3ffb2250 0x400d7eea:0x3ffb2270 0x400eef95:0x3ffb2290
+
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/WString.h:326
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/Print.cpp:188
+    C:\UwesTechnik\ccs32/hardwareInterface.ino:19
+    C:\UwesTechnik\ccs32/ccs32.ino:81 (discriminator 5)
+    C:\UwesTechnik\ccs32/ccs32.ino:98
+    C:\UwesTechnik\ccs32/ccs32.ino:150
+    C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/main.cpp:50
+```
+
+xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x4012e8e0
+C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/HardwareSerial.h:125
+would be readBytes().
+
+The LoadProhibited error in Hardwareserial is also discussed here:
+https://github.com/espressif/arduino-esp32/issues/1070 (also with EXCVADDR: 0x0000000c)
+and https://github.com/espressif/arduino-esp32/issues/991. There the workaround is: do not use Arduino-ESP32's HardwareSerial and used esp-idf's uart library instead by including driver/uart.h. 
+There is a library as workaround: https://github.com/9a4gl/ESP32Serial. Copied the ESP32Serial.cpp and .h from this, and using this instead of the Arduinos HardwareSerial.
+
+But still running into (LoadProhibited) with EXCVADDR: 0x0000000c
+In Arduino IDE, Menu->Tools->CoreDebugLevel to "Debug".
+
+
+Guru Meditation Error: Core  1 panic'ed (LoadProhibited). Exception was unhandled.
+Core  1 register dump:
+PC      : 0x400d2628  PS      : 0x00060e30  A0      : 0x800d30b1  A1      : 0x3ffb2150  
+A2      : 0x3ffc37a4  A3      : 0x3ffbd4ac  A4      : 0x3f400c34  A5      : 0x00000015  
+A6      : 0x3f401f2c  A7      : 0x3ffbd4ac  A8      : 0x00000000  A9      : 0x3ffb2140  
+A10     : 0x0000001b  A11     : 0x3ffbd4c7  A12     : 0x0000001b  A13     : 0x0000ff00  
+A14     : 0x00ff0000  A15     : 0xff000000  SAR     : 0x00000017  EXCCAUSE: 0x0000001c  
+EXCVADDR: 0x0000000c  LBEG    : 0x4008854d  LEND    : 0x4008855d  LCOUNT  : 0xfffffff8  
+Backtrace: 0x400d2625:0x3ffb2150 0x400d30ae:0x3ffb2170 0x400d32b7:0x3ffb21c0 0x400d8011:0x3ffb2250 0x400d8036:0x3ffb2270 0x400ef571:0x3ffb2290
+
+
+xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x400d2625:0x3ffb2150 0x400d30ae:0x3ffb2170 0x400d32b7:0x3ffb21c0 0x400d8011:0x3ffb2250 0x400d8036:0x3ffb2270 0x400ef571:0x3ffb2290
+C:\UwesTechnik\ccs32/ESP32Serial.cpp:133
+C:\UwesTechnik\ccs32/hardwareInterface.ino:22
+C:\UwesTechnik\ccs32/ccs32.ino:81 (discriminator 5)
+C:\UwesTechnik\ccs32/ccs32.ino:98
+C:\UwesTechnik\ccs32/ccs32.ino:150
+C:\Users\uwemi\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.7\cores\esp32/main.cpp:50
+
+
+xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x400d2628
+
+Added mySerial.flush()
+
+Still
+0x400d2625:0x3ffb2150 0x400d7d91:0x3ffb2170 0x400d7fa3:0x3ffb21c0 0x400d8055:0x3ffb2250 0x400d807a:0x3ffb2270 0x400ef589:0x3ffb2290
+
+xtensa-esp32-elf-addr2line -e C:\Users\uwemi\AppData\Local\Temp\arduino\sketches\EBDAD9BC378D70AF6CFE030E00280F82\ccs32.ino.elf 0x400d2625:0x3ffb2150 0x400d7d91:0x3ffb2170 0x400d7fa3:0x3ffb21c0 0x400d8055:0x3ffb2250 0x400d807a:0x3ffb2270 0x400ef589:0x3ffb2290
+
+C:\UwesTechnik\ccs32/ESP32Serial.cpp:133 in  ESP32Serial::print() 
+
+Further investigation showed, that the variable m_port in the ESP32Serial was corrupted to 0, due to a overflow of the UDP buffer, due to
+missing length check during the ethernet receive function.
 
 ## Is it possible to extract the function names out of a backtrace?
 From https://esp32.com/viewtopic.php?t=23567:

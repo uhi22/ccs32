@@ -38,6 +38,21 @@ String globalLine3;
 uint16_t counterForDisplayUpdate;
 
 
+void sanityCheck(String info) {
+  int r;
+  r= hardwareInterface_sanityCheck();
+  r=r | homeplug_sanityCheck();
+  if (eatenHeapSpace>10000) {
+    /* if something is eating the heap, this is a fatal error. */
+    addToTrace("ERROR: Sanity check failed due to heap space check.");
+    r = -10;
+  }
+  if (r!=0) {
+      addToTrace(String("ERROR: Sanity check failed ") + String(r) + " " + info);
+      delay(2000); /* Todo: we should make a reset here. */
+  }
+}
+
 /**********************************************************/
 /* The logging macros and functions */
 #undef log_v
@@ -57,31 +72,29 @@ void addToTrace(String strTrace) {
 /**********************************************************/
 /* The global status printer */
 void publishStatus(String line1, String line2 = "", String line3 = "") {
-  uint32_t t;
-  uint16_t minutes, seconds;
-  String strMinutes, strSeconds, strLine3extended;
-  /* show the uptime in the third line */  
-  t = millis()/1000;
-  minutes = t / 60;
-  seconds = t - (minutes*60);
-  strMinutes = String(minutes);
-  strSeconds = String(seconds);  
-  if (strMinutes.length()<2) strMinutes = "0" + strMinutes;
-  if (strSeconds.length()<2) strSeconds = "0" + strSeconds;
-  if (line3.length()==0) line3 = "    up";
-  strLine3extended = line3 + " " + strMinutes + ":" + strSeconds;
-  hardwareInterface_showOnDisplay(line1, line2, strLine3extended);
   globalLine1=line1;
   globalLine2=line2;
   globalLine3=line3;
-  counterForDisplayUpdate=30; /* 30*30ms=900ms until forced cyclic update of the LCD */  
 }  
 
 void cyclicLcdUpdate(void) {
+  uint32_t t;
+  uint16_t minutes, seconds;
+  String strMinutes, strSeconds, strLine3extended;
   if (counterForDisplayUpdate>0) {
     counterForDisplayUpdate--;  
   } else {
-    publishStatus(globalLine1, globalLine2, globalLine3);
+    /* show the uptime in the third line */  
+    t = millis()/1000;
+    minutes = t / 60;
+    seconds = t - (minutes*60);
+    strMinutes = String(minutes);
+    strSeconds = String(seconds);  
+    if (strMinutes.length()<2) strMinutes = "0" + strMinutes;
+    if (strSeconds.length()<2) strSeconds = "0" + strSeconds;
+    strLine3extended = globalLine3 + " " + strMinutes + ":" + strSeconds;
+    hardwareInterface_showOnDisplay(globalLine1, globalLine2, strLine3extended);
+    counterForDisplayUpdate=15; /* 15*30ms=450ms until forced cyclic update of the LCD */  
   }
 }
 
@@ -98,6 +111,7 @@ void task30ms(void) {
   tcp_Mainfunction();
   pevStateMachine_Mainfunction();
   cyclicLcdUpdate();
+  sanityCheck("cyclic30ms");
 }
 
 /* This task runs once a second. */

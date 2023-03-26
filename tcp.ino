@@ -45,7 +45,7 @@ void evaluateTcpPacket(void) {
   nTcpPacketsReceived++;
   pLen =  (((uint16_t)myreceivebuffer[18])<<8) +  myreceivebuffer[19]; /* length of the IP payload */
   hdrLen=(myreceivebuffer[66]>>4) * 4; /* header length in byte */
-  log_v("pLen=%d, hdrLen=%d", pLen, hdrLen);  
+  //log_v("pLen=%d, hdrLen=%d", pLen, hdrLen);  
   if (pLen>=hdrLen) {
     tmpPayloadLen = pLen - hdrLen;
   } else {
@@ -92,7 +92,7 @@ void evaluateTcpPacket(void) {
   }      
   /* It can be an ACK, or a data package, or a combination of both. We treat the ACK and the data independent from each other,
     to treat each combination. */
-  log_v("L=%d", tmpPayloadLen);     
+  //log_v("L=%d", tmpPayloadLen);     
   if ((tmpPayloadLen>0) && (tmpPayloadLen<TCP_RX_DATA_LEN)) {
     /* This is a data transfer packet. */
     tcp_rxdataLen = tmpPayloadLen;

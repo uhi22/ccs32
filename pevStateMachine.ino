@@ -73,12 +73,12 @@ void addV2GTPHeaderAndTransmit(const uint8_t *exiBuffer, uint8_t exiBufferLen) {
 
 void encodeAndTransmit(void) {
   /* calls the EXI encoder, adds the V2GTP header and sends the result to ethernet */
-  addToTrace("before: g_errn=" + String(g_errn));
-  addToTrace("global_streamEncPos=" + String(global_streamEncPos));
+  //addToTrace("before: g_errn=" + String(g_errn));
+  //addToTrace("global_streamEncPos=" + String(global_streamEncPos));
   global_streamEncPos = 0;
   projectExiConnector_encode_DinExiDocument();
-  addToTrace("after: g_errn=" + String(g_errn));
-  addToTrace("global_streamEncPos=" + String(global_streamEncPos));
+  //addToTrace("after: g_errn=" + String(g_errn));
+  //addToTrace("global_streamEncPos=" + String(global_streamEncPos));
   addV2GTPHeaderAndTransmit(global_streamEnc.data, global_streamEncPos);
 }
 
@@ -90,7 +90,7 @@ void routeDecoderInputData(void) {
   */
   global_streamDec.data = &tcp_rxdata[V2GTP_HEADER_SIZE];
   global_streamDec.size = tcp_rxdataLen - V2GTP_HEADER_SIZE;
-  addToTrace("The decoder will see:");  
+  //addToTrace("The decoder will see:");  
   showBuffer(global_streamDec.data, global_streamDec.size);
   /* We have something to decode, this is a good sign that the connection is fine.
      Inform the ConnectionManager that everything is fine. */

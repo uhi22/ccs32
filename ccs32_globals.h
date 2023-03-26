@@ -1,4 +1,5 @@
 
+//extern int uart_write_bytes(int uart_num, const void* src, size_t size);
 
 /* Logging verbosity settings */
 //#define VERBOSE_INIT_ETH

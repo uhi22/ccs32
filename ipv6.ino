@@ -87,26 +87,36 @@ void ipv6_evaluateReceivedPacket(void) {
           udplen = myreceivebuffer[58] * 256 + myreceivebuffer[59];
           udpsum = myreceivebuffer[60] * 256 + myreceivebuffer[61];
           //# udplen is including 8 bytes header at the begin
+          if (udplen>UDP_PAYLOAD_LEN) {
+              /* ignore long UDP */
+              return;
+          }
           if (udplen>8) {
                     udpPayloadLen = udplen-8;
                     for (i=0; i<udplen-8; i++) {
                         udpPayload[i] = myreceivebuffer[62+i];
                     }
+                    sanityCheck("before evaluateUdpPayload");
                     evaluateUdpPayload();
+                    sanityCheck("after evaluateUdpPayload");
           }                      
       }
       if (nextheader == 0x06) { // # it is an TCP frame
         //addToTrace("[PEV] TCP received");
+        sanityCheck("before evaluateTcpPacket");
         evaluateTcpPacket();
+        sanityCheck("before evaluateTcpPacket");
       }
-			if (nextheader == NEXT_ICMPv6) { // it is an ICMPv6 (NeighborSolicitation etc) frame
-				//addToTrace("[PEV] ICMPv6 received");
-				icmpv6type = myreceivebuffer[54];
-				if (icmpv6type == 0x87) { /* Neighbor Solicitation */
-					//addToTrace("[PEV] Neighbor Solicitation received");
-					evaluateNeighborSolicitation();
-				}
-			}
+      if (nextheader == NEXT_ICMPv6) { // it is an ICMPv6 (NeighborSolicitation etc) frame
+        //addToTrace("[PEV] ICMPv6 received");
+        icmpv6type = myreceivebuffer[54];
+        if (icmpv6type == 0x87) { /* Neighbor Solicitation */
+            //addToTrace("[PEV] Neighbor Solicitation received");
+            sanityCheck("before evaluateNeighborSolicitation");
+            evaluateNeighborSolicitation();
+            sanityCheck("after evaluateNeighborSolicitation");
+        }
+      }
   }
 }
 

@@ -726,6 +726,7 @@ void runSlacSequencer(void) {
             return;
         }        
         // invalid state is reached. As robustness measure, go to initial state.
+        addToTrace("[PEVSLAC] ERROR: Invalid state reached:" + String(pevSequenceState));
         slac_enterState(STATE_INITIAL);    
 }
 
@@ -782,6 +783,18 @@ void evaluateReceivedHomeplugPacket(void) {
     case CM_SET_KEY + MMTYPE_CNF:    evaluateSetKeyCnf();    break;
     case CM_GET_SW + MMTYPE_CNF:     evaluateGetSwCnf();     break;
   }
+}
+
+int homeplug_sanityCheck(void) {
+  if (pevSequenceState>STATE_SDP) {
+    addToTrace("ERROR: Sanity check of the homeplug state machine failed." + String(pevSequenceState));    
+    return -1;
+  }
+  if (sdp_state>=2) {
+    addToTrace("ERROR: Sanity check of the SDP state machine failed." + String(sdp_state));    
+    return -1;
+  }
+  return 0;  
 }
 
 void homeplugInit(void) {
