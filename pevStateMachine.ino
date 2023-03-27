@@ -20,6 +20,9 @@
 #define PEV_STATE_ChargingFinished 15
 #define PEV_STATE_SequenceTimeout 99
 
+#define LEN_OF_EVCCID 6 /* The EVCCID is the MAC according to spec. Ioniq uses exactly these 6 byte. */
+
+
 const uint8_t exiDemoSupportedApplicationProtocolRequestIoniq[]={0x80, 0x00, 0xdb, 0xab, 0x93, 0x71, 0xd3, 0x23, 0x4b, 0x71, 0xd1, 0xb9, 0x81, 0x89, 0x91, 0x89, 0xd1, 0x91, 0x81, 0x89, 0x91, 0xd2, 0x6b, 0x9b, 0x3a, 0x23, 0x2b, 0x30, 0x02, 0x00, 0x00, 0x04, 0x00, 0x40 };
 
 
@@ -105,14 +108,43 @@ void pev_sendChargeParameterDiscoveryReq(void) {
     init_dinChargeParameterDiscoveryReqType(&dinDocEnc.V2G_Message.Body.ChargeParameterDiscoveryReq);
     dinDocEnc.V2G_Message.Body.ChargeParameterDiscoveryReq.EVRequestedEnergyTransferType = dinEVRequestedEnergyTransferType_DC_extended;
     cp = &dinDocEnc.V2G_Message.Body.ChargeParameterDiscoveryReq.DC_EVChargeParameter;
-    cp->DC_EVStatus.EVReady = 1; /* todo: what ever this means */
+    cp->DC_EVStatus.EVReady = 0;  /* What ever this means. The Ioniq sends 0 here in the ChargeParameterDiscoveryReq message. */
+    //cp->DC_EVStatus.EVCabinConditioning_isUsed /* The Ioniq sends this with 1, but let's assume it is not mandatory. */
+    //cp->DC_EVStatus.RESSConditioning_isUsed /* The Ioniq sends this with 1, but let's assume it is not mandatory. */    
     cp->DC_EVStatus.EVRESSSOC = hardwareInterface_getSoc(); /* Todo: Take the SOC from the BMS. Scaling is 1%. */
-    cp->EVMaximumCurrentLimit.Multiplier = 0; /* -3 to 3. The exponent for base of 10. */
-    cp->EVMaximumCurrentLimit.Unit = dinunitSymbolType_A;
     cp->EVMaximumCurrentLimit.Value = 100;
-    cp->EVMaximumVoltageLimit.Multiplier = 0; /* -3 to 3. The exponent for base of 10. */
-    cp->EVMaximumVoltageLimit.Unit = dinunitSymbolType_V;
+    cp->EVMaximumCurrentLimit.Multiplier = 0; /* -3 to 3. The exponent for base of 10. */
+    cp->EVMaximumCurrentLimit.Unit_isUsed = 1;
+    cp->EVMaximumCurrentLimit.Unit = dinunitSymbolType_A;
+    
+    cp->EVMaximumPowerLimit_isUsed = 1; /* The Ioniq sends 1 here. */
+    cp->EVMaximumPowerLimit.Value = 9800; /* Ioniq: 9800 */
+    cp->EVMaximumPowerLimit.Multiplier = 1; /* 10^1 */
+    cp->EVMaximumPowerLimit.Unit_isUsed = 1; 
+    cp->EVMaximumPowerLimit.Unit = dinunitSymbolType_W; /* Watt */
+    
     cp->EVMaximumVoltageLimit.Value = 398;
+    cp->EVMaximumVoltageLimit.Multiplier = 0; /* -3 to 3. The exponent for base of 10. */
+    cp->EVMaximumVoltageLimit.Unit_isUsed = 1;
+    cp->EVMaximumVoltageLimit.Unit = dinunitSymbolType_V;
+    
+    cp->EVEnergyCapacity_isUsed = 1;
+    cp->EVEnergyCapacity.Value = 28000; /* 28kWh from Ioniq */
+    cp->EVEnergyCapacity.Multiplier = 0;
+    cp->EVEnergyCapacity.Unit_isUsed = 1;
+    cp->EVEnergyCapacity.Unit = dinunitSymbolType_Wh; /* from Ioniq */
+
+    cp->EVEnergyRequest_isUsed = 1;
+    cp->EVEnergyRequest.Value = 20000; /* just invented 20kWh */
+    cp->EVEnergyRequest.Multiplier = 0;
+    cp->EVEnergyRequest.Unit_isUsed = 1;
+    cp->EVEnergyRequest.Unit = dinunitSymbolType_Wh; /* 9 from Ioniq */
+
+    cp->FullSOC_isUsed = 1;
+    cp->FullSOC = 100;
+    cp->BulkSOC_isUsed = 1;
+    cp->BulkSOC = 80;
+    
     dinDocEnc.V2G_Message.Body.ChargeParameterDiscoveryReq.DC_EVChargeParameter_isUsed = 1;
     encodeAndTransmit();
 }
@@ -237,6 +269,7 @@ void pev_testExiSend(void) {
 }
 
 void stateFunctionWaitForSupportedApplicationProtocolResponse(void) {
+  uint8_t i;
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForSupportedApplicationProtocolResponse, received:");
     showBuffer(tcp_rxdata, tcp_rxdataLen);
@@ -268,6 +301,15 @@ void stateFunctionWaitForSupportedApplicationProtocolResponse(void) {
         dinDocEnc.V2G_Message.Header.SessionID.bytes[6] = 0;
         dinDocEnc.V2G_Message.Header.SessionID.bytes[7] = 0;
         dinDocEnc.V2G_Message.Header.SessionID.bytesLen = 8;
+        /* Takeover from https://github.com/uhi22/OpenV2Gx/commit/fc46c3ca802f08c57120a308f69fb4d1ce14f6b6 */
+        /* The EVCCID. In the ISO they write, that this shall be the EVCC MAC. But the DIN
+           reserves 8 bytes (dinSessionSetupReqType_EVCCID_BYTES_SIZE is 8). This does not match.
+           The Ioniq (DIN) sets the bytesLen=6 and fills the 6 bytes with its own MAC. Let's assume this
+           is the best way. */
+        for (i=0; i<LEN_OF_EVCCID; i++) {
+          dinDocEnc.V2G_Message.Body.SessionSetupReq.EVCCID.bytes[i] = myMAC[i];
+        }
+        dinDocEnc.V2G_Message.Body.SessionSetupReq.EVCCID.bytesLen = LEN_OF_EVCCID;
         encodeAndTransmit();
         pev_enterState(PEV_STATE_WaitForSessionSetupResponse);
     }
