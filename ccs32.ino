@@ -24,7 +24,9 @@
 //extern uint32_t uwe_rxCounter;
 /**********************************************************/
 
-#define LED 2 /* The IO2 is used for an LED. This LED is externally added to the WT32-ETH01 board. */
+#define PIN_LED 2 /* The IO2 is used for an LED. This LED is externally added to the WT32-ETH01 board. */
+#define PIN_STATE_C 4 /* The IO4 is used to change the CP line to state C. High=StateC, Low=StateB */ 
+#define PIN_POWER_RELAIS 35 /* IO35 for the power relay */
 uint32_t currentTime;
 uint32_t lastTime1s;
 uint32_t lastTime30ms;
@@ -117,11 +119,11 @@ void task30ms(void) {
 /* This task runs once a second. */
 void task1s(void) {
   if (ledState==0) {
-    digitalWrite(LED,HIGH);
+    digitalWrite(PIN_LED,HIGH);
     //Serial.println("LED on");
     ledState = 1;
   } else {
-    digitalWrite(LED,LOW);
+    digitalWrite(PIN_LED,LOW);
     //Serial.println("LED off");
     ledState = 0;
   }
@@ -141,7 +143,9 @@ void task1s(void) {
 
 void setup() {
   // Set pin mode
-  pinMode(LED,OUTPUT);
+  pinMode(PIN_LED,OUTPUT);
+  pinMode(PIN_STATE_C, OUTPUT);
+  pinMode(PIN_POWER_RELAIS, OUTPUT);
   Serial.begin(115200);
   Serial.println("CCS32 Started.");
   if (!initEth()) {

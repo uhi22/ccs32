@@ -529,6 +529,8 @@ void stateFunctionWaitForCableCheckResponse(void) {
 }
 
 void stateFunctionWaitForPreChargeResponse(void) {
+  uint16_t u;
+  String s;
   hardwareInterface_simulatePreCharge();
   if (pev_DelayCycles>0) {
     pev_DelayCycles-=1;
@@ -542,10 +544,19 @@ void stateFunctionWaitForPreChargeResponse(void) {
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
     if (dinDocDec.V2G_Message.Body.PreChargeRes_isUsed) {
         addToTrace("PreCharge aknowledge received.");
+        u = dinDocDec.V2G_Message.Body.PreChargeRes.EVSEPresentVoltage.Value;
+        // todo use dinDocDec.V2G_Message.Body.PreChargeRes.EVSEPresentVoltage.Multiplier
         //s = "U_Inlet " + String(hardwareInterface.getInletVoltage()) + "V, "
         //s= s + "U_Accu " + String(hardwareInterface.getAccuVoltage()) + "V"
-        //addToTrace(s);
-        if (abs(hardwareInterface_getInletVoltage()-hardwareInterface_getAccuVoltage()) < PARAM_U_DELTA_MAX_FOR_END_OF_PRECHARGE) {
+        #ifdef USE_EVSEPRESENTVOLTAGE_FOR_PRECHARGE_END
+          /* use the voltage which is reported by the charger to decide about the end of PreCharge */
+          s = "Using EVSEPresentVoltage=" + String(u);
+          addToTrace(s);
+        #else
+          /* use the physically measured inlet voltage to decide about end of PreCharge */
+          u = hardwareInterface_getInletVoltage()
+        #endif
+        if (abs(u-hardwareInterface_getAccuVoltage()) < PARAM_U_DELTA_MAX_FOR_END_OF_PRECHARGE) {
             addToTrace("Difference between accu voltage and inlet voltage is small. Sending PowerDeliveryReq.");
             publishStatus("PreCharge done");
             if (isLightBulbDemo) {
@@ -559,7 +570,7 @@ void stateFunctionWaitForPreChargeResponse(void) {
             pev_sendPowerDeliveryReq(1); /* 1 is ON */
             pev_enterState(PEV_STATE_WaitForPowerDeliveryResponse);
         } else {
-            publishStatus("PreChrge ongoing", String(hardwareInterface_getInletVoltage()) + "V");
+            publishStatus("PreChrge ongoing", String(u) + "V");
             addToTrace("Difference too big. Continuing PreCharge.");
             pev_sendPreChargeReq();
             pev_DelayCycles=15; // wait with the next evaluation approx half a second
@@ -602,6 +613,7 @@ void stateFunctionWaitForPowerDeliveryResponse(void) {
 }
 
 void stateFunctionWaitForCurrentDemandResponse(void) {
+  uint16_t u;
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForCurrentDemandRes, received:");
     showBuffer(tcp_rxdata, tcp_rxdataLen);
@@ -624,7 +636,13 @@ void stateFunctionWaitForCurrentDemandResponse(void) {
         } else {
             /* continue charging loop */
             hardwareInterface_simulateCharging();
-            publishStatus("Charging", String(hardwareInterface_getInletVoltage()) + "V", String(hardwareInterface_getSoc()) + "%");
+            #if 0
+              u = hardwareInterface_getInletVoltage();
+            #else
+              u = dinDocDec.V2G_Message.Body.CurrentDemandRes.EVSEPresentVoltage.Value;
+              /* todo: use Multiplier */
+            #endif
+            publishStatus("Charging", String(u) + "V", String(hardwareInterface_getSoc()) + "%");
             pev_sendCurrentDemandReq();
             pev_enterState(PEV_STATE_WaitForCurrentDemandResponse);
         }
@@ -714,7 +732,7 @@ void pev_enterState(uint8_t n) {
 }
 
 uint8_t pev_isTooLong(void) {
-  uint8_t limit;
+  uint16_t limit;
   // The timeout handling function.
   limit = 30; // number of call cycles until timeout
   if (pev_state==PEV_STATE_WaitForCableCheckResponse) {
@@ -730,7 +748,12 @@ uint8_t pev_isTooLong(void) {
 void pev_runFsm(void) {
  if (connMgr_getConnectionLevel()<CONNLEVEL_80_TCP_RUNNING) {
         /* If we have no TCP to the charger, nothing to do here. Just wait for the link. */
-        if (pev_state!=PEV_STATE_NotYetInitialized) pev_enterState(PEV_STATE_NotYetInitialized);   
+        if (pev_state!=PEV_STATE_NotYetInitialized) {
+            pev_enterState(PEV_STATE_NotYetInitialized);
+            hardwareInterface_setStateB();
+            hardwareInterface_setPowerRelayOff();
+            hardwareInterface_setRelay2Off();
+        }
         return;
  }
  if (connMgr_getConnectionLevel()==CONNLEVEL_80_TCP_RUNNING) {
@@ -765,9 +788,9 @@ void pevStateMachine_Init(void) {
 void pevStateMachine_ReInit(void) {
   addToTrace("re-initializing fsmPev");
   tcp_Disconnect();
-  //hardwareInterface.setStateB()
-  //hardwareInterface.setPowerRelayOff()
-  //hardwareInterface.setRelay2Off()
+  hardwareInterface_setStateB();
+  hardwareInterface_setPowerRelayOff();
+  hardwareInterface_setRelay2Off();
   //isBulbOn = False
   //cyclesLightBulbDelay = 0
   pev_state = PEV_STATE_Connecting;

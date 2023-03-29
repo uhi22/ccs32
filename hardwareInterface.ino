@@ -81,10 +81,11 @@ uint8_t hardwareInterface_getIsAccuFull(void) {
 }
 
 void hardwareInterface_setPowerRelayOn(void) {
-    
+  digitalWrite(PIN_POWER_RELAIS, HIGH);
 }
 
 void hardwareInterface_setPowerRelayOff(void) {
+  digitalWrite(PIN_POWER_RELAIS, LOW);
 }
 
 void hardwareInterface_setRelay2On(void) {
@@ -94,9 +95,11 @@ void hardwareInterface_setRelay2Off(void) {
 }
 
 void hardwareInterface_setStateB(void) {
+  digitalWrite(PIN_STATE_C, LOW);
 }
 
 void hardwareInterface_setStateC(void) {
+  digitalWrite(PIN_STATE_C, HIGH);
 }
 
 void hardwareInterface_resetSimulation(void) {
