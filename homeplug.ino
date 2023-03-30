@@ -557,6 +557,7 @@ int isTooLong(void) {
 }
 
 void runSlacSequencer(void) {
+    pevSequenceCyclesInState++;
     /* in PevMode, check whether homeplug modem is connected, run the SLAC */
     if (connMgr_getConnectionLevel()<10) {
       /* we have no modem seen. --> nothing to do for the SLAC */

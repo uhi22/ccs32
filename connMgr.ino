@@ -12,17 +12,19 @@
    fine.
 */
 
-uint8_t connMgr_timerModemLocal;
-uint8_t connMgr_timerModemRemote;
-uint8_t connMgr_timerSlac;
-uint8_t connMgr_timerSDP;
-uint8_t connMgr_timerTCP;
-uint8_t connMgr_timerAppl;
-uint8_t connMgr_ConnectionLevel;
-uint8_t connMgr_ConnectionLevelOld;
-uint8_t connMgr_cycles;
+uint16_t connMgr_timerModemLocal;
+uint16_t connMgr_timerModemRemote;
+uint16_t connMgr_timerSlac;
+uint16_t connMgr_timerSDP;
+uint16_t connMgr_timerTCP;
+uint16_t connMgr_timerAppl;
+uint16_t connMgr_ConnectionLevel;
+uint16_t connMgr_ConnectionLevelOld;
+uint16_t connMgr_cycles;
 
 #define CONNMGR_TIMER_MAX (5*33) /* 5 seconds until an OkReport is forgotten. */
+#define CONNMGR_TIMER_MAX_15s (15*33) /* 15 seconds until an OkReport is forgotten. */
+
 
 uint8_t connMgr_getConnectionLevel(void) {
     return connMgr_ConnectionLevel;
@@ -81,7 +83,10 @@ void connMgr_ModemFinderOk(uint8_t numberOfFoundModems) {
 }
 
 void connMgr_SlacOk(void) {
-    connMgr_timerSlac = CONNMGR_TIMER_MAX;
+    /* The SetKey was sent to the local modem. This leads to restart of the
+    local modem, and potenially also for the remote modem. If both modems are up,
+    they need additional time to pair. We need to be patient during this process. */
+    connMgr_timerSlac = CONNMGR_TIMER_MAX_15s;
 }
 
 void connMgr_SdpOk(void) {
