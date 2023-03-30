@@ -230,34 +230,53 @@ void ipv6_packRequestIntoEthernet(void) {
 }
 
 void evaluateNeighborSolicitation(void) {
-	uint16_t checksum;
-	uint8_t i;
+  uint16_t checksum;
+  uint8_t i;
   /* The neighbor discovery protocol is used by the charger to find out the
-    relation between MAC and IP. */
+     relation between MAC and IP. */
 
-	/* We could extract the necessary information from the NeighborSolicitation,
-     means the chargers IP and MAC address. But we have these addresses already
-     from the SDP response. So we can ignore the content of the NeighborSolicitation,
-     and directly compose the response. */
+  /* We could extract the necessary information from the NeighborSolicitation,
+     means the chargers IP and MAC address. But this is not fully necessary:
+     - The chargers MAC was already discovered in the SLAC. So we do not need to extract
+       it here again.
+     - For the chargers IPv6, there are two possible cases:
+         (A) The charger made the SDP without NeighborDiscovery. This works, if
+             we use the pyPlc.py as charger. It does not care for NeighborDiscovery,
+             because the SDP is implemented independent of the address resolution of 
+             the operating system.
+             In this case, we know the chargers IP already from the SDP.
+         (B) The charger insists of doing NeighborSolitcitation in the middle of
+             SDP. This behavior was observed on Alpitronics. Means, we have the
+             following sequence:
+             1. car sends SDP request
+             2. charger sends NeighborSolicitation
+             3. car sends NeighborAdvertisement
+             4. charger sends SDP response
+             In this case, we need to extract the chargers IP from the NeighborSolicitation,
+             otherwise we have to chance to send the correct NeighborAdvertisement. 
+             We can do this always, because this does not hurt for case A, address
+             is (hopefully) not changing. */
+  /* save the chargers IP. The chargers IP is the source IP on IPv6 level, at byte 22. */
+  memcpy(SeccIp, &myreceivebuffer[22], 16);
   
   /* send a NeighborAdvertisement as response. */
-	// destination MAC = charger MAC
+  // destination MAC = charger MAC
   fillDestinationMac(evseMac); // bytes 6 to 11 are the source MAC	
-	// source MAC = my MAC
+  // source MAC = my MAC
   fillSourceMac(myMAC); // bytes 6 to 11 are the source MAC
-	// Ethertype 86DD
+  // Ethertype 86DD
   mytransmitbuffer[12] = 0x86; // # 86dd is IPv6
   mytransmitbuffer[13] = 0xdd;
   mytransmitbuffer[14] = 0x60; // # traffic class, flow
   mytransmitbuffer[15] = 0; 
   mytransmitbuffer[16] = 0;
   mytransmitbuffer[17] = 0;
-	// plen
-	#define ICMP_LEN 32 /* bytes in the ICMPv6 */
+  // plen
+  #define ICMP_LEN 32 /* bytes in the ICMPv6 */
   mytransmitbuffer[18] = 0;
   mytransmitbuffer[19] = ICMP_LEN;
-	mytransmitbuffer[20] = NEXT_ICMPv6;
-	mytransmitbuffer[21] = 0xff;
+  mytransmitbuffer[20] = NEXT_ICMPv6;
+  mytransmitbuffer[21] = 0xff;
   // We are the PEV. So the EvccIp is our own link-local IP address.
   for (i=0; i<16; i++) {
       mytransmitbuffer[22+i] = EvccIp[i]; // source IP address
@@ -265,25 +284,25 @@ void evaluateNeighborSolicitation(void) {
   for (i=0; i<16; i++) {
       mytransmitbuffer[38+i] = SeccIp[i]; // destination IP address
   }
-	/* here starts the ICMPv6 */
-	mytransmitbuffer[54] = 0x88; /* Neighbor Advertisement */
-	mytransmitbuffer[55] = 0;	
-	mytransmitbuffer[56] = 0; /* checksum (filled later) */	
-	mytransmitbuffer[57] = 0;	
+  /* here starts the ICMPv6 */
+  mytransmitbuffer[54] = 0x88; /* Neighbor Advertisement */
+  mytransmitbuffer[55] = 0;	
+  mytransmitbuffer[56] = 0; /* checksum (filled later) */	
+  mytransmitbuffer[57] = 0;	
 
-	/* Flags */
-	mytransmitbuffer[58] = 0x60; /* Solicited, override */	
-	mytransmitbuffer[59] = 0;
-	mytransmitbuffer[60] = 0;
-	mytransmitbuffer[61] = 0;
-	
-	memcpy(&mytransmitbuffer[62], EvccIp, 16); /* The own IP address */
-	mytransmitbuffer[78] = 2; /* Type 2, Link Layer Address */
-	mytransmitbuffer[79] = 1; /* Length 1, means 8 byte (?) */
-	memcpy(&mytransmitbuffer[80], myMAC, 6); /* The own Link Layer (MAC) address */
-	
-	checksum = calculateUdpAndTcpChecksumForIPv6(&mytransmitbuffer[54], ICMP_LEN, EvccIp, SeccIp, NEXT_ICMPv6);
-	mytransmitbuffer[56] = checksum >> 8;
+  /* Flags */
+  mytransmitbuffer[58] = 0x60; /* Solicited, override */	
+  mytransmitbuffer[59] = 0;
+  mytransmitbuffer[60] = 0;
+  mytransmitbuffer[61] = 0;
+
+  memcpy(&mytransmitbuffer[62], EvccIp, 16); /* The own IP address */
+  mytransmitbuffer[78] = 2; /* Type 2, Link Layer Address */
+  mytransmitbuffer[79] = 1; /* Length 1, means 8 byte (?) */
+  memcpy(&mytransmitbuffer[80], myMAC, 6); /* The own Link Layer (MAC) address */
+
+  checksum = calculateUdpAndTcpChecksumForIPv6(&mytransmitbuffer[54], ICMP_LEN, EvccIp, SeccIp, NEXT_ICMPv6);
+  mytransmitbuffer[56] = checksum >> 8;
   mytransmitbuffer[57] = checksum & 0xFF;
   myEthTransmit();
 }

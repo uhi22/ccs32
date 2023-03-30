@@ -23,6 +23,7 @@ uint16_t connMgr_ConnectionLevelOld;
 uint16_t connMgr_cycles;
 
 #define CONNMGR_TIMER_MAX (5*33) /* 5 seconds until an OkReport is forgotten. */
+#define CONNMGR_TIMER_MAX_10s (10*33) /* 10 seconds until an OkReport is forgotten. */
 #define CONNMGR_TIMER_MAX_15s (15*33) /* 15 seconds until an OkReport is forgotten. */
 
 
@@ -78,7 +79,7 @@ void connMgr_ModemFinderOk(uint8_t numberOfFoundModems) {
     connMgr_timerModemLocal = CONNMGR_TIMER_MAX;
   }
   if (numberOfFoundModems>=2) {
-    connMgr_timerModemRemote = CONNMGR_TIMER_MAX;
+    connMgr_timerModemRemote = CONNMGR_TIMER_MAX_10s; /* 10s for the slac sequence, to avoid too fast timeout */
   }
 }
 

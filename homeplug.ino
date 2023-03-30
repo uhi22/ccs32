@@ -343,6 +343,7 @@ void evaluateSlacMatchCnf(void) {
             // use the extracted NMK and NID to set the key in the adaptor:
             composeSetKey();
             addToTrace("[PEVSLAC] Checkpoint170: transmitting CM_SET_KEY.REQ");
+            publishStatus("SLAC", "set key");
             myEthTransmit();
             if (pevSequenceState==STATE_WAITING_FOR_SLAC_MATCH_CNF) { // we were waiting for finishing the SLAC_MATCH.CNF and SET_KEY.REQ
                 slac_enterState(STATE_WAITING_FOR_RESTART2);
@@ -409,6 +410,7 @@ void evaluateSetKeyCnf(void) {
         addToTrace("[PEVSLAC] SetKeyCnf says 0, this would be a bad sign for local modem, but normal for remote.");
     } else {
         addToTrace("[PEVSLAC] SetKeyCnf says " + String(result) + ", this is formally 'rejected', but indeed ok.");
+        publishStatus("modem is", "restarting");
         connMgr_SlacOk();
 	  }
 }
@@ -664,7 +666,7 @@ void runSlacSequencer(void) {
                 return;
 			      }
             composeSlacMatchReq();
-            publishStatus("SLAC", "match");
+            publishStatus("SLAC", "match req");
             addToTrace("[PEVSLAC] Checkpoint150: transmitting SLAC_MATCH.REQ...");
             myEthTransmit();
             slac_enterState(STATE_WAITING_FOR_SLAC_MATCH_CNF);
