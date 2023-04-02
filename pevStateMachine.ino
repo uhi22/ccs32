@@ -38,15 +38,6 @@ uint8_t pev_isBulbOn;
 uint16_t pev_cyclesLightBulbDelay;
 
 
-void showBuffer(const uint8_t *buffer, uint8_t len) {
- String s;
- uint8_t i;
- s = "(" + String(len) + " bytes)= ";
- for (i=0; i<len; i++) {
-   s = s + String(buffer[i], HEX) + " ";
- }
- addToTrace(s);
-}
 
 void addV2GTPHeaderAndTransmit(const uint8_t *exiBuffer, uint8_t exiBufferLen) {
   // takes the bytearray with exidata, and adds a header to it, according to the Vehicle-to-Grid-Transport-Protocol
@@ -67,7 +58,7 @@ void addV2GTPHeaderAndTransmit(const uint8_t *exiBuffer, uint8_t exiBufferLen) {
       memcpy(&tcpPayload[8], exiBuffer, exiBufferLen);
       tcpPayloadLen = 8 + exiBufferLen; /* 8 byte V2GTP header, plus the EXI data */
       log_v("Step3 %d", tcpPayloadLen);
-      showBuffer(tcpPayload, tcpPayloadLen);
+      showAsHex(tcpPayload, tcpPayloadLen, "tcpPayload");
       tcp_transmit();
   } else {
       addToTrace("Error: EXI does not fit into tcpPayload.");
@@ -94,7 +85,7 @@ void routeDecoderInputData(void) {
   global_streamDec.data = &tcp_rxdata[V2GTP_HEADER_SIZE];
   global_streamDec.size = tcp_rxdataLen - V2GTP_HEADER_SIZE;
   //addToTrace("The decoder will see:");  
-  showBuffer(global_streamDec.data, global_streamDec.size);
+  showAsHex(global_streamDec.data, global_streamDec.size, "decoder will see");
   /* We have something to decode, this is a good sign that the connection is fine.
      Inform the ConnectionManager that everything is fine. */
   connMgr_ApplOk();
@@ -272,8 +263,7 @@ void stateFunctionWaitForSupportedApplicationProtocolResponse(void) {
   uint8_t i;
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForSupportedApplicationProtocolResponse, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
-    //showBuffer(myreceivebuffer, 74+tcp_rxdataLen );
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_appHandExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -322,7 +312,7 @@ void stateFunctionWaitForSupportedApplicationProtocolResponse(void) {
 void stateFunctionWaitForSessionSetupResponse(void) {
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForSessionSetupResponse, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -332,7 +322,7 @@ void stateFunctionWaitForSessionSetupResponse(void) {
       memcpy(sessionId, dinDocDec.V2G_Message.Header.SessionID.bytes, SESSIONID_LEN);
       sessionIdLen = dinDocDec.V2G_Message.Header.SessionID.bytesLen; /* store the received SessionID, we will need it later. */
       addToTrace("Checkpoint506: The Evse decided for SessionId");
-      showBuffer(sessionId, sessionIdLen);
+      showAsHex(sessionId, sessionIdLen, "");
       publishStatus("Session established");
       addToTrace("Will send ServiceDiscoveryReq");
       projectExiConnector_prepare_DinExiDocument();
@@ -350,7 +340,7 @@ void stateFunctionWaitForSessionSetupResponse(void) {
 void stateFunctionWaitForServiceDiscoveryResponse(void) {
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForServiceDiscoveryResponse, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -376,7 +366,7 @@ void stateFunctionWaitForServiceDiscoveryResponse(void) {
 void stateFunctionWaitForServicePaymentSelectionResponse(void) {
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForServicePaymentSelectionResponse, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -403,7 +393,7 @@ void stateFunctionWaitForContractAuthenticationResponse(void) {
   }
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForContractAuthenticationResponse, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -445,7 +435,7 @@ void stateFunctionWaitForChargeParameterDiscoveryResponse(void) {
   }
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForChargeParameterDiscoveryResponse, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -490,7 +480,7 @@ void stateFunctionWaitForCableCheckResponse(void) {
   }
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForCableCheckResponse, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -538,7 +528,7 @@ void stateFunctionWaitForPreChargeResponse(void) {
   }
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForPreChargeResponse, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -585,7 +575,7 @@ void stateFunctionWaitForPreChargeResponse(void) {
 void stateFunctionWaitForPowerDeliveryResponse(void) {
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForPowerDeliveryRes, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -616,7 +606,7 @@ void stateFunctionWaitForCurrentDemandResponse(void) {
   uint16_t u;
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForCurrentDemandRes, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -668,7 +658,7 @@ void stateFunctionWaitForCurrentDemandResponse(void) {
 void stateFunctionWaitForWeldingDetectionResponse(void) {
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForWeldingDetectionRes, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
@@ -692,7 +682,7 @@ void stateFunctionWaitForWeldingDetectionResponse(void) {
 void stateFunctionWaitForSessionStopResponse(void) {
   if (tcp_rxdataLen>V2GTP_HEADER_SIZE) {
     addToTrace("In state WaitForSessionStopRes, received:");
-    showBuffer(tcp_rxdata, tcp_rxdataLen);
+    showAsHex(tcp_rxdata, tcp_rxdataLen, "");
     routeDecoderInputData();
     projectExiConnector_decode_DinExiDocument();
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */

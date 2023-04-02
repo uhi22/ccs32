@@ -71,6 +71,23 @@ void addToTrace(String strTrace) {
   log_v("%s", strTrace.c_str());  
 }
 
+void showAsHex(uint8_t *arr, uint16_t len, char *info) {
+ char strTmp[10];
+ #define MAX_RESULT_LEN 700
+ char strResult[MAX_RESULT_LEN];
+ uint16_t i;
+ sprintf(strResult, "%s has %d bytes:", info, len);
+ for (i=0; i<len; i++) {
+  sprintf(strTmp, "%02hx ", arr[i]);
+  if (strlen(strResult)<MAX_RESULT_LEN-10) {  
+    strcat(strResult, strTmp);
+  } else {
+    /* does not fit. Just ignore the remaining bytes. */
+  }
+ }
+ addToTrace_chararray(strResult);
+} 
+
 /**********************************************************/
 /* The global status printer */
 void publishStatus(String line1, String line2 = "", String line3 = "") {
@@ -135,7 +152,10 @@ void task1s(void) {
   //sendTestFrame(); /* just for testing, send something on the Ethernet. */
   eatenHeapSpace = initialHeapSpace - ESP.getFreeHeap();
   //Serial.println("EatenHeapSpace=" + String(eatenHeapSpace) + " uwe_rxCounter=" + String(uwe_rxCounter) + " uwe_rxMallocAccumulated=" + String(uwe_rxMallocAccumulated) );
-  Serial.println("EatenHeapSpace=" + String(eatenHeapSpace));
+  if (eatenHeapSpace>1000) {
+    /* if we lost more than 1000 bytes on heap, print a waring message: */
+    Serial.println("WARNING: EatenHeapSpace=" + String(eatenHeapSpace));
+  }
 }
 
 /**********************************************************/

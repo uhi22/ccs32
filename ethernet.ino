@@ -44,17 +44,21 @@ esp_err_t myEthernetReceiveCallback(esp_eth_handle_t hdl, uint8_t *buffer, uint3
   uint32_t L;
   sanityCheck("Start of eth rx");
   L=length;
-  if (L>=MY_ETH_RECEIVE_BUFFER_LEN) L=MY_ETH_RECEIVE_BUFFER_LEN;
+  if (L>=MY_ETH_RECEIVE_BUFFER_LEN) {
+    addToTrace("Ethernet rx: limiting " + String(L) + " to " + String(MY_ETH_RECEIVE_BUFFER_LEN) + " bytes");
+    L=MY_ETH_RECEIVE_BUFFER_LEN;
+  }
   memcpy(myreceivebuffer, buffer, L); /* possible improvement: copy of buffer is not really necessary. We could directly work
                                          on the buffer provided by the ethernet driver. This was allocated especially for each
                                          single received message, and will be present until the application frees it. */ 
   myreceivebufferLen=L;
-  sanityCheck("Step2 of eth rx");  
+  sanityCheck("Step2 of eth rx"); 
+  showAsHex(myreceivebuffer, myreceivebufferLen, "eth.myreceivebuffer");   
   if (etherType == 0x88E1) { /* it is a HomePlug message */
-    //Serial.println("Its a HomePlug message.");
+    Serial.println("Its a HomePlug message.");
     evaluateReceivedHomeplugPacket();
   } else if (etherType == 0x86dd) { /* it is an IPv6 frame */
-    //Serial.println("Its a IPv6 message.");
+    Serial.println("Its a IPv6 message.");
     ipv6_evaluateReceivedPacket();
   } else {
     //Serial.println("Other message.");
@@ -68,6 +72,7 @@ esp_err_t myEthernetReceiveCallback(esp_eth_handle_t hdl, uint8_t *buffer, uint3
 /* The Ethernet transmit function. */
 void myEthTransmit(void) {
   nTotalTransmittedBytes += mytransmitbufferLen;
+  showAsHex(mytransmitbuffer, mytransmitbufferLen, "myEthTransmit");
   (void)esp_eth_transmit(eth_handle, mytransmitbuffer, mytransmitbufferLen);
 }
 

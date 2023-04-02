@@ -69,12 +69,9 @@ void evaluateTcpPacket(void) {
         (((uint32_t)myreceivebuffer[63])<<16) +
         (((uint32_t)myreceivebuffer[64])<<8) +
         (((uint32_t)myreceivebuffer[65]));
-  nTcpPacketsReceived+=100;       
   flags = myreceivebuffer[67];
   if (flags == TCP_FLAG_SYN+TCP_FLAG_ACK) { /* This is the connection setup response from the server. */
-    nTcpPacketsReceived+=1000;       
     if (tcpState == TCP_STATE_SYN_SENT) {
-      nTcpPacketsReceived+=10000;
       TcpSeqNr = remoteAckNr; /* The sequence number of our next transmit packet is given by the received ACK number. */
       TcpAckNr = remoteSeqNr+1; /* The ACK number of our next transmit packet is one more than the received seq number. */
       tcpState = TCP_STATE_ESTABLISHED;
@@ -150,7 +147,7 @@ void tcp_sendAck(void) {
 }
 
 void tcp_transmit(void) {
-  //showBuffer(tcpPayload, tcpPayloadLen);
+  //showAsHex(tcpPayload, tcpPayloadLen, "tcp_transmit");
   if (tcpState == TCP_STATE_ESTABLISHED) {  
     //addToTrace("[TCP] sending data");
     tcpHeaderLen = 20; /* 20 bytes normal header, no options */
@@ -255,8 +252,8 @@ void tcp_packRequestIntoIp(void) {
         }
         for (i=0; i<TcpTransmitPacketLen; i++) {
             TcpIpRequest[40+i] = TcpTransmitPacket[i];
-        }            
-        //showBuffer(TcpIpRequest, TcpIpRequestLen);       
+        }
+        //showAsHex(TcpIpRequest, TcpIpRequestLen, "TcpIpRequest");
         tcp_packRequestIntoEthernet();
 }
 
@@ -275,7 +272,6 @@ void tcp_packRequestIntoEthernet(void) {
         for (i=0; i<TcpIpRequestLen; i++) {
             mytransmitbuffer[14+i] = TcpIpRequest[i];
         }
-        //showBuffer(mytransmitbuffer, mytransmitbufferLen);
         myEthTransmit();
 }
 

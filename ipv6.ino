@@ -108,7 +108,7 @@ void ipv6_evaluateReceivedPacket(void) {
         sanityCheck("before evaluateTcpPacket");
       }
       if (nextheader == NEXT_ICMPv6) { // it is an ICMPv6 (NeighborSolicitation etc) frame
-        //addToTrace("[PEV] ICMPv6 received");
+        addToTrace("[PEV] ICMPv6 received");
         icmpv6type = myreceivebuffer[54];
         if (icmpv6type == 0x87) { /* Neighbor Solicitation */
             //addToTrace("[PEV] Neighbor Solicitation received");
@@ -166,12 +166,11 @@ void ipv6_packRequestIntoUdp(void) {
         for (i=0; i<v2gtpFrameLen; i++) {
             UdpRequest[8+i] = v2gtpFrame[i];
         }
-        //#showAsHex(UdpRequest, "UDP request ")
-        //broadcastIPv6 = [ 0xff, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-        //# The content of buffer is ready. We can calculate the checksum. see https://en.wikipedia.org/wiki/User_Datagram_Protocol
+        // The content of buffer is ready. We can calculate the checksum. see https://en.wikipedia.org/wiki/User_Datagram_Protocol
         checksum = calculateUdpAndTcpChecksumForIPv6(UdpRequest, UdpRequestLen, EvccIp, broadcastIPv6, NEXT_UDP); 
         UdpRequest[6] = checksum >> 8;
         UdpRequest[7] = checksum & 0xFF;        
+        showAsHex(UdpRequest, UdpRequestLen, "UDP request ");
         ipv6_packRequestIntoIp();
 }
         
@@ -238,7 +237,8 @@ void evaluateNeighborSolicitation(void) {
   /* We could extract the necessary information from the NeighborSolicitation,
      means the chargers IP and MAC address. But this is not fully necessary:
      - The chargers MAC was already discovered in the SLAC. So we do not need to extract
-       it here again.
+       it here again. But if we have not done the SLAC, because the modems are already paired,
+       then it makes sense to extract the chargers MAC from the Neighbor Solicitation message.
      - For the chargers IPv6, there are two possible cases:
          (A) The charger made the SDP without NeighborDiscovery. This works, if
              we use the pyPlc.py as charger. It does not care for NeighborDiscovery,
@@ -258,10 +258,12 @@ void evaluateNeighborSolicitation(void) {
              is (hopefully) not changing. */
   /* save the chargers IP. The chargers IP is the source IP on IPv6 level, at byte 22. */
   memcpy(SeccIp, &myreceivebuffer[22], 16);
+  /* save the chargers MAC. The chargers MAC is the source MAC on Eth level, at byte 6. */
+  memcpy(evseMac, &myreceivebuffer[6], 6);
   
   /* send a NeighborAdvertisement as response. */
   // destination MAC = charger MAC
-  fillDestinationMac(evseMac); // bytes 6 to 11 are the source MAC	
+  fillDestinationMac(evseMac); // bytes 0 to 5 are the destination MAC	
   // source MAC = my MAC
   fillSourceMac(myMAC); // bytes 6 to 11 are the source MAC
   // Ethertype 86DD
@@ -304,6 +306,7 @@ void evaluateNeighborSolicitation(void) {
   checksum = calculateUdpAndTcpChecksumForIPv6(&mytransmitbuffer[54], ICMP_LEN, EvccIp, SeccIp, NEXT_ICMPv6);
   mytransmitbuffer[56] = checksum >> 8;
   mytransmitbuffer[57] = checksum & 0xFF;
+  addToTrace("transmitting Neighbor Advertisement");
   myEthTransmit();
 }
 
