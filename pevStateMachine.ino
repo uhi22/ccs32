@@ -57,7 +57,7 @@ void addV2GTPHeaderAndTransmit(const uint8_t *exiBuffer, uint8_t exiBufferLen) {
   if (exiBufferLen+8<TCP_PAYLOAD_LEN) {
       memcpy(&tcpPayload[8], exiBuffer, exiBufferLen);
       tcpPayloadLen = 8 + exiBufferLen; /* 8 byte V2GTP header, plus the EXI data */
-      log_v("Step3 %d", tcpPayloadLen);
+      //log_v("Step3 %d", tcpPayloadLen);
       showAsHex(tcpPayload, tcpPayloadLen, "tcpPayload");
       tcp_transmit();
   } else {
@@ -252,11 +252,6 @@ void stateFunctionConnected(void) {
   addV2GTPHeaderAndTransmit(exiDemoSupportedApplicationProtocolRequestIoniq, sizeof(exiDemoSupportedApplicationProtocolRequestIoniq));
   hardwareInterface_resetSimulation();
   pev_enterState(PEV_STATE_WaitForSupportedApplicationProtocolResponse);
-}
-
-void pev_testExiSend(void) {
-  addToTrace("Step1");
-  addV2GTPHeaderAndTransmit(exiDemoSupportedApplicationProtocolRequestIoniq, sizeof(exiDemoSupportedApplicationProtocolRequestIoniq));  
 }
 
 void stateFunctionWaitForSupportedApplicationProtocolResponse(void) {

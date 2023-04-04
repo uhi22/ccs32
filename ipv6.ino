@@ -12,6 +12,8 @@ uint16_t sourceport;
 uint16_t destinationport;
 uint16_t udplen;
 uint16_t udpsum;
+uint8_t NeighborsMac[6];
+uint8_t NeighborsIp[16];
 
 #define NEXT_UDP 0x11 /* next protocol is UDP */
 #define NEXT_ICMPv6 0x3a /* next protocol is ICMPv6 */
@@ -82,6 +84,7 @@ void ipv6_evaluateReceivedPacket(void) {
       memcpy(sourceIp, &myreceivebuffer[22], 16);
       nextheader = myreceivebuffer[20];
       if (nextheader == 0x11) { //  it is an UDP frame
+          addToTrace("Its a UDP.");
           sourceport = myreceivebuffer[54] * 256 + myreceivebuffer[55];
           destinationport = myreceivebuffer[56] * 256 + myreceivebuffer[57];
           udplen = myreceivebuffer[58] * 256 + myreceivebuffer[59];
@@ -89,6 +92,7 @@ void ipv6_evaluateReceivedPacket(void) {
           //# udplen is including 8 bytes header at the begin
           if (udplen>UDP_PAYLOAD_LEN) {
               /* ignore long UDP */
+              addToTrace("Ignoring too long UDP");
               return;
           }
           if (udplen>8) {
@@ -102,13 +106,13 @@ void ipv6_evaluateReceivedPacket(void) {
           }                      
       }
       if (nextheader == 0x06) { // # it is an TCP frame
-        //addToTrace("[PEV] TCP received");
+        addToTrace("TCP received");
         sanityCheck("before evaluateTcpPacket");
         evaluateTcpPacket();
         sanityCheck("before evaluateTcpPacket");
       }
       if (nextheader == NEXT_ICMPv6) { // it is an ICMPv6 (NeighborSolicitation etc) frame
-        addToTrace("[PEV] ICMPv6 received");
+        addToTrace("ICMPv6 received");
         icmpv6type = myreceivebuffer[54];
         if (icmpv6type == 0x87) { /* Neighbor Solicitation */
             //addToTrace("[PEV] Neighbor Solicitation received");
@@ -256,14 +260,19 @@ void evaluateNeighborSolicitation(void) {
              otherwise we have to chance to send the correct NeighborAdvertisement. 
              We can do this always, because this does not hurt for case A, address
              is (hopefully) not changing. */
-  /* save the chargers IP. The chargers IP is the source IP on IPv6 level, at byte 22. */
-  memcpy(SeccIp, &myreceivebuffer[22], 16);
-  /* save the chargers MAC. The chargers MAC is the source MAC on Eth level, at byte 6. */
-  memcpy(evseMac, &myreceivebuffer[6], 6);
+  /* More general approach: In the network there may be more participants than only the charger,
+     e.g. a notebook for sniffing. Eeach of it may send a NeighborSolicitation, and we should NOT use the addresses from the
+     NeighborSolicitation as addresses of the charger. The chargers address is only determined
+     by the SDP. */
+     
+  /* save the requesters IP. The requesters IP is the source IP on IPv6 level, at byte 22. */
+  memcpy(NeighborsIp, &myreceivebuffer[22], 16);
+  /* save the requesters MAC. The requesters MAC is the source MAC on Eth level, at byte 6. */
+  memcpy(NeighborsMac, &myreceivebuffer[6], 6);
   
   /* send a NeighborAdvertisement as response. */
-  // destination MAC = charger MAC
-  fillDestinationMac(evseMac); // bytes 0 to 5 are the destination MAC	
+  // destination MAC = neighbors MAC
+  fillDestinationMac(NeighborsMac); // bytes 0 to 5 are the destination MAC	
   // source MAC = my MAC
   fillSourceMac(myMAC); // bytes 6 to 11 are the source MAC
   // Ethertype 86DD
@@ -284,7 +293,7 @@ void evaluateNeighborSolicitation(void) {
       mytransmitbuffer[22+i] = EvccIp[i]; // source IP address
   }            
   for (i=0; i<16; i++) {
-      mytransmitbuffer[38+i] = SeccIp[i]; // destination IP address
+      mytransmitbuffer[38+i] = NeighborsIp[i]; // destination IP address
   }
   /* here starts the ICMPv6 */
   mytransmitbuffer[54] = 0x88; /* Neighbor Advertisement */
@@ -303,7 +312,7 @@ void evaluateNeighborSolicitation(void) {
   mytransmitbuffer[79] = 1; /* Length 1, means 8 byte (?) */
   memcpy(&mytransmitbuffer[80], myMAC, 6); /* The own Link Layer (MAC) address */
 
-  checksum = calculateUdpAndTcpChecksumForIPv6(&mytransmitbuffer[54], ICMP_LEN, EvccIp, SeccIp, NEXT_ICMPv6);
+  checksum = calculateUdpAndTcpChecksumForIPv6(&mytransmitbuffer[54], ICMP_LEN, EvccIp, NeighborsIp, NEXT_ICMPv6);
   mytransmitbuffer[56] = checksum >> 8;
   mytransmitbuffer[57] = checksum & 0xFF;
   addToTrace("transmitting Neighbor Advertisement");

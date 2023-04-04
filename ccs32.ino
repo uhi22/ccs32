@@ -147,7 +147,6 @@ void task1s(void) {
   //log_v("nTotalEthReceiveBytes=%ld, nCycles30ms=%ld", nTotalEthReceiveBytes, nCycles30ms);
   //log_v("nTotalEthReceiveBytes=%ld, nMaxInMyEthernetReceiveCallback=%d, nTcpPacketsReceived=%d", nTotalEthReceiveBytes, nMaxInMyEthernetReceiveCallback, nTcpPacketsReceived);
   //log_v("nTotalTransmittedBytes=%ld", nTotalTransmittedBytes);
-  //pev_testExiSend(); /* just for testing, send some EXI data. */
   //tcp_testSendData(); /* just for testing, send something with TCP. */
   //sendTestFrame(); /* just for testing, send something on the Ethernet. */
   eatenHeapSpace = initialHeapSpace - ESP.getFreeHeap();
