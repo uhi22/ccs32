@@ -10,6 +10,9 @@ https://github.com/uhi22/pyPLC
 
 ## News / Change history / functional status
 
+### 2023-04-05 Charging loop on Alpitronics works
+- After fixing several topics regarding the NeighborSolicitation, the SDP succeeds, and we come to the charging loop on alpitronics hypercharger.
+
 ### 2023-03-25 LC Display works
 - The three-line-OLED display (see https://github.com/uhi22/SerialToOLED) shows the charging progress.
 - Simulated charging works with simulated EVSE (Win10, pyPlc).

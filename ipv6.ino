@@ -315,6 +315,7 @@ void evaluateNeighborSolicitation(void) {
   checksum = calculateUdpAndTcpChecksumForIPv6(&mytransmitbuffer[54], ICMP_LEN, EvccIp, NeighborsIp, NEXT_ICMPv6);
   mytransmitbuffer[56] = checksum >> 8;
   mytransmitbuffer[57] = checksum & 0xFF;
+  mytransmitbufferLen = 86; /* Length of the NeighborAdvertisement */
   addToTrace("transmitting Neighbor Advertisement");
   myEthTransmit();
 }
