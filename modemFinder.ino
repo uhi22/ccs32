@@ -4,7 +4,7 @@ uint8_t mofi_state;
 uint8_t mofi_stateDelay;
 
 void modemFinder_Mainfunction(void) {
-  if ((connMgr_getConnectionLevel()==0) && (mofi_state==0)) {
+  if ((connMgr_getConnectionLevel()==CONNLEVEL_5_ETH_LINK_PRESENT) && (mofi_state==0)) {
     /* We want the modem search only, if no connection is present at all. */
     addToTrace("[ModemFinder] Starting modem search");
     publishStatus("Modem search");

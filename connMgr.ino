@@ -12,6 +12,7 @@
    fine.
 */
 
+uint16_t connMgr_timerEthLink;
 uint16_t connMgr_timerModemLocal;
 uint16_t connMgr_timerModemRemote;
 uint16_t connMgr_timerSlac;
@@ -33,7 +34,8 @@ uint8_t connMgr_getConnectionLevel(void) {
 
 void connMgr_printDebugInfos(void) {
     String s;
-    s = "[CONNMGR] " + String(connMgr_timerModemLocal) + " "
+    s = "[CONNMGR] " + String(connMgr_timerEthLink) + " "
+                     + String(connMgr_timerModemLocal) + " "
                      + String(connMgr_timerModemRemote) + " "
                      + String(connMgr_timerSlac) + " "
                      + String(connMgr_timerSDP) + " "
@@ -45,6 +47,7 @@ void connMgr_printDebugInfos(void) {
 
 void connMgr_Mainfunction(void) {
     /* count all the timers down */
+    if (connMgr_timerEthLink>0) connMgr_timerEthLink--;
     if (connMgr_timerModemLocal>0) connMgr_timerModemLocal--;
     if (connMgr_timerModemRemote>0) connMgr_timerModemRemote--;
     if (connMgr_timerSlac>0) connMgr_timerSlac--;
@@ -59,18 +62,28 @@ void connMgr_Mainfunction(void) {
     else if (connMgr_timerModemRemote>0) { connMgr_ConnectionLevel=CONNLEVEL_20_TWO_MODEMS_FOUND; }
     else if (connMgr_timerSlac>0) {        connMgr_ConnectionLevel=CONNLEVEL_15_SLAC_ONGOING; }
     else if (connMgr_timerModemLocal>0) {  connMgr_ConnectionLevel=CONNLEVEL_10_ONE_MODEM_FOUND; }
+    else if (connMgr_timerEthLink>0)       connMgr_ConnectionLevel=CONNLEVEL_5_ETH_LINK_PRESENT;
     else {connMgr_ConnectionLevel=0;}
 
     if (isEthLinkUp==0) {
       /* If we have no ethernet link to the modem. So we can immediately say, there is NO connection at all. */
       connMgr_ConnectionLevel=0;      
-    }    
+    } else {
+      /* Ethernet link is up */
+      connMgr_timerEthLink = CONNMGR_TIMER_MAX;
+    }
 
     if (connMgr_ConnectionLevelOld!=connMgr_ConnectionLevel) {
       addToTrace("[CONNMGR] ConnectionLevel changed from " + String(connMgr_ConnectionLevelOld) + " to " + String(connMgr_ConnectionLevel));
       connMgr_ConnectionLevelOld = connMgr_ConnectionLevel;
     }
-    if ((connMgr_cycles % 30)==0) connMgr_printDebugInfos();
+    if ((connMgr_cycles % 33)==0) {
+        /* once per second */
+        connMgr_printDebugInfos();
+        if (connMgr_ConnectionLevel<CONNLEVEL_5_ETH_LINK_PRESENT) {
+            publishStatus("Eth", "no link");
+        }
+    }
     connMgr_cycles++;
 }
 

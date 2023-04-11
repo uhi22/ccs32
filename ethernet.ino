@@ -3,6 +3,7 @@
 static eth_clock_mode_t eth_clock_mode = ETH_CLK_MODE;
 esp_eth_handle_t eth_handle;
 uint8_t isEthLinkUp;
+uint8_t nFailedEthTransmissions;
 
 /*********************************************/
 
@@ -71,9 +72,22 @@ esp_err_t myEthernetReceiveCallback(esp_eth_handle_t hdl, uint8_t *buffer, uint3
 
 /* The Ethernet transmit function. */
 void myEthTransmit(void) {
+  uint16_t retval;
   nTotalTransmittedBytes += mytransmitbufferLen;
   showAsHex(mytransmitbuffer, mytransmitbufferLen, "myEthTransmit");
-  (void)esp_eth_transmit(eth_handle, mytransmitbuffer, mytransmitbufferLen);
+  retval = esp_eth_transmit(eth_handle, mytransmitbuffer, mytransmitbufferLen);
+  if (retval!=ESP_OK) {
+    addToTrace("esp_eth_transmit went wrong, " + String(retval));
+    nFailedEthTransmissions++;  
+    addToTrace("In total " + String(nFailedEthTransmissions) + " failed transmissions.");
+    if (nFailedEthTransmissions>=4) {
+      addToTrace("Restarting the Ethernet driver");
+      (void)esp_eth_stop(eth_handle); 
+      (void)esp_eth_start(eth_handle);      
+    }      
+  } else {
+    nFailedEthTransmissions=0;
+  }
 }
 
 /* The Ethernet initialization function.

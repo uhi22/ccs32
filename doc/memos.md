@@ -448,3 +448,18 @@ Fifth message (which is the confirmation of the first data message):
  - SEQNR = last received ACKNR = A+1
  - ACKNR =  last received SEQNR + lengthOfData
  
+ 
+## Follow-up for Ethernet: Transmit issue
+
+During modem search, while the Eth link is reported as ok, after ~11 modem search messages:
+```
+(22356) esp.emac: emac_esp32_transmit(232): insufficient TX buffer size
+```
+* In C:\esp-idf-v4.4.4\components\esp_eth\src\
+* emac_esp32_transmit() calls emac_hal_transmit_frame()
+* In C:\esp-idf-v4.4.4\components\hal\
+* emac_hal_transmit_frame() returns 0, if the buffer is still in hand of the ETH-DMA, so the CPU cannot write.
+
+Implemented workaround: In case of repeated transmit fails, restart the ethernet driver by calling esp_eth_stop() and esp_eth_start().
+This does not yet solve all stuck-transmit-path cases, but is a certain improvement.
+

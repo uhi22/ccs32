@@ -38,6 +38,7 @@ extern uint8_t tcpPayload[TCP_PAYLOAD_LEN];
 #define CONNLEVEL_20_TWO_MODEMS_FOUND 20
 #define CONNLEVEL_15_SLAC_ONGOING 15
 #define CONNLEVEL_10_ONE_MODEM_FOUND 10
+#define CONNLEVEL_5_ETH_LINK_PRESENT 5
 
 
 /* Charging behavior */
