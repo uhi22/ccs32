@@ -26,7 +26,7 @@
 
 #define PIN_LED 2 /* The IO2 is used for an LED. This LED is externally added to the WT32-ETH01 board. */
 #define PIN_STATE_C 4 /* The IO4 is used to change the CP line to state C. High=StateC, Low=StateB */ 
-#define PIN_POWER_RELAIS 35 /* IO35 for the power relay */
+#define PIN_POWER_RELAIS 14 /* IO14 for the power relay */
 uint32_t currentTime;
 uint32_t lastTime1s;
 uint32_t lastTime30ms;
@@ -167,6 +167,10 @@ void setup() {
   pinMode(PIN_POWER_RELAIS, OUTPUT);
   Serial.begin(115200);
   Serial.println("CCS32 Started.");
+  digitalWrite(PIN_POWER_RELAIS, LOW); /* activate relais as test */
+  delay(500);
+  digitalWrite(PIN_POWER_RELAIS, HIGH); /* deactivate relais */
+  
   if (!initEth()) {
     log_v("Error: Ethernet init failed.");
   }
