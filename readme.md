@@ -46,10 +46,10 @@ the related responses on the debug console.
 - no log file for offline analysis
 
 ## Todos
-- porting of all required homeplug stuff from python to C.
-- porting the SLAC state machine
-- porting the Syslog message transmission
-- porting the UDP and SDP
-- integrating TCP
-- integrating the EXI decoder/encoder
-- porting the pev state machine
+[x] porting of all required homeplug stuff from python to C.
+[x] porting the SLAC state machine
+[ ] porting the Syslog message transmission
+[x] porting the UDP and SDP
+[x] integrating TCP
+[x] integrating the EXI decoder/encoder
+[x] porting the pev state machine

@@ -738,6 +738,8 @@ void pev_runFsm(void) {
             hardwareInterface_setStateB();
             hardwareInterface_setPowerRelayOff();
             hardwareInterface_setRelay2Off();
+            pev_isBulbOn = 0;
+            pev_cyclesLightBulbDelay = 0;
         }
         return;
  }
@@ -776,8 +778,8 @@ void pevStateMachine_ReInit(void) {
   hardwareInterface_setStateB();
   hardwareInterface_setPowerRelayOff();
   hardwareInterface_setRelay2Off();
-  //isBulbOn = False
-  //cyclesLightBulbDelay = 0
+  pev_isBulbOn = 0;
+  pev_cyclesLightBulbDelay = 0;
   pev_state = PEV_STATE_Connecting;
   pev_cyclesInState = 0;
 }

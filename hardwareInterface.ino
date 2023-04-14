@@ -81,12 +81,10 @@ uint8_t hardwareInterface_getIsAccuFull(void) {
 }
 
 void hardwareInterface_setPowerRelayOn(void) {
-  pinMode(PIN_POWER_RELAIS, OUTPUT);
   digitalWrite(PIN_POWER_RELAIS, LOW); /* relais is low-active */
 }
 
 void hardwareInterface_setPowerRelayOff(void) {
-  pinMode(PIN_POWER_RELAIS, OUTPUT);  
   digitalWrite(PIN_POWER_RELAIS, HIGH); /* relais is low-active */
 }
 

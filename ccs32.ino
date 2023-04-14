@@ -161,22 +161,28 @@ void task1s(void) {
 /* The Arduino standard entry points */
 
 void setup() {
+  Serial.begin(115200);
+  Serial.println("CCS32 Started.");
+  hardwareInterface_initDisplay();
+  delay(800); /* wait until the display is up */  
+  hardwareInterface_showOnDisplay("2023-04-13", "Hello", "World");
   // Set pin mode
   pinMode(PIN_LED,OUTPUT);
   pinMode(PIN_STATE_C, OUTPUT);
   pinMode(PIN_POWER_RELAIS, OUTPUT);
-  Serial.begin(115200);
-  Serial.println("CCS32 Started.");
-  digitalWrite(PIN_POWER_RELAIS, LOW); /* activate relais as test */
-  delay(500);
   digitalWrite(PIN_POWER_RELAIS, HIGH); /* deactivate relais */
-  
+  delay(500); /* wait for power inrush, to avoid low-voltage during startup if we would switch the relay here. */
   if (!initEth()) {
     log_v("Error: Ethernet init failed.");
+    hardwareInterface_showOnDisplay("Error", "initEth failed", "check pwr");
+    while (1);
   }
   homeplugInit();
   pevStateMachine_Init();
-  hardwareInterface_initDisplay();
+  Serial.println("Relay test.");
+  digitalWrite(PIN_POWER_RELAIS, LOW); /* activate relais as test */
+  delay(500);
+  digitalWrite(PIN_POWER_RELAIS, HIGH); /* deactivate relais */
   /* The time for the tasks starts here. */
   currentTime = millis();
   lastTime30ms = currentTime;
