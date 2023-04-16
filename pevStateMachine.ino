@@ -38,6 +38,13 @@ uint8_t pev_isBulbOn;
 uint16_t pev_cyclesLightBulbDelay;
 
 
+int32_t combineValueAndMultiplier(int32_t val, int8_t multiplier) {
+  int32_t x;
+  x = val;
+  while (multiplier>0) { x=x*10; multiplier--; }
+  while (multiplier<0) { x=x/10; multiplier++; }
+  return x;
+}
 
 void addV2GTPHeaderAndTransmit(const uint8_t *exiBuffer, uint8_t exiBufferLen) {
   // takes the bytearray with exidata, and adds a header to it, according to the Vehicle-to-Grid-Transport-Protocol
@@ -509,7 +516,12 @@ void stateFunctionWaitForCableCheckResponse(void) {
             } else {    
                 // cable check not yet finished or finished with bad result -> try again
                 pev_numberOfCableCheckReq += 1;
-                publishStatus("CbleChck ongoing", String(hardwareInterface_getInletVoltage()) + "V");
+                #if 0 /* todo: use config item to decide whether we have inlet voltage measurement or not */
+                  publishStatus("CbleChck ongoing", String(hardwareInterface_getInletVoltage()) + "V");
+                #else
+                  /* no inlet voltage measurement available, just show status */
+                  publishStatus("CbleChck ongoing");
+                #endif
                 addToTrace("Will again send CableCheckReq");
                 pev_sendCableCheckReq();
                 // stay in the same state
@@ -539,8 +551,10 @@ void stateFunctionWaitForPreChargeResponse(void) {
     tcp_rxdataLen = 0; /* mark the input data as "consumed" */
     if (dinDocDec.V2G_Message.Body.PreChargeRes_isUsed) {
         addToTrace("PreCharge aknowledge received.");
-        u = dinDocDec.V2G_Message.Body.PreChargeRes.EVSEPresentVoltage.Value;
-        // todo use dinDocDec.V2G_Message.Body.PreChargeRes.EVSEPresentVoltage.Multiplier
+        u = combineValueAndMultiplier(dinDocDec.V2G_Message.Body.PreChargeRes.EVSEPresentVoltage.Value,
+                  dinDocDec.V2G_Message.Body.PreChargeRes.EVSEPresentVoltage.Multiplier);
+        addToTrace("EVSEPresentVoltage.Value " + String(dinDocDec.V2G_Message.Body.PreChargeRes.EVSEPresentVoltage.Value));
+        addToTrace("EVSEPresentVoltage.Multiplier " + String(dinDocDec.V2G_Message.Body.PreChargeRes.EVSEPresentVoltage.Multiplier));        
         //s = "U_Inlet " + String(hardwareInterface.getInletVoltage()) + "V, "
         //s= s + "U_Accu " + String(hardwareInterface.getAccuVoltage()) + "V"
         #ifdef USE_EVSEPRESENTVOLTAGE_FOR_PRECHARGE_END
@@ -634,8 +648,8 @@ void stateFunctionWaitForCurrentDemandResponse(void) {
             #if 0
               u = hardwareInterface_getInletVoltage();
             #else
-              u = dinDocDec.V2G_Message.Body.CurrentDemandRes.EVSEPresentVoltage.Value;
-              /* todo: use Multiplier */
+              u = combineValueAndMultiplier(dinDocDec.V2G_Message.Body.CurrentDemandRes.EVSEPresentVoltage.Value,
+                       dinDocDec.V2G_Message.Body.CurrentDemandRes.EVSEPresentVoltage.Multiplier);
             #endif
             publishStatus("Charging", String(u) + "V", String(hardwareInterface_getSoc()) + "%");
             pev_sendCurrentDemandReq();
@@ -735,6 +749,9 @@ uint8_t pev_isTooLong(void) {
   }
   if (pev_state==PEV_STATE_WaitForPreChargeResponse) {
     limit = 30*30; // PreCharge may need some time. Wait at least 30s.
+  }
+  if (pev_state==PEV_STATE_WaitForPowerDeliveryResponse) {
+    limit = 5*30; // PowerDelivery may need some time. Wait at least 5s. On Compleo charger, observed more than 1s until response.
   }
   return (pev_cyclesInState > limit);
 }
