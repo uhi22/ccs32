@@ -63,6 +63,14 @@ void evaluateUdpPayload(void) {
                             }
                             //# Extract the TCP port, on which the charger will listen:
                             seccTcpPort = (((uint16_t)(udpPayload[8+16]))<<8) + udpPayload[8+16+1];
+                            /* in case we did not yet found out the chargers MAC, because we jumped-over the SLAC,
+                               we extract the chargers MAC from the SDP response. */
+                            if ((evseMac[0]==0) && (evseMac[1]==0)) {
+                                addToTrace("[SDP] Taking evseMac from SDP response because not yet known.");
+                                for (i=0; i<6; i++) {
+                                    evseMac[i] = myreceivebuffer[6+i]; // source MAC starts at offset 6
+                                }
+                            }
                             publishStatus("SDP finished");
                             addToTrace("[SDP] Now we know the chargers IP.");
                             connMgr_SdpOk();

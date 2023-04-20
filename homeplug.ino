@@ -692,6 +692,7 @@ void runSlacSequencer(void) {
             }
             addToTrace("[PEVSLAC] Checking whether the pairing worked, by GET_KEY.REQ...");
             numberOfFoundModems = 0; // reset the number, we want to count the modems newly.
+            nEvseModemMissingCounter=0; // reset the retry counter
             composeGetKey();
             myEthTransmit();                
             slac_enterState(STATE_FIND_MODEMS2);
@@ -707,7 +708,7 @@ void runSlacSequencer(void) {
                     addToTrace("[PEVSLAC] No EVSE seen (yet). Still waiting for it.");
                     // At the Alpitronic we measured, that it takes 7s between the SlacMatchResponse and
                     // the chargers modem reacts to GetKeyRequest. So we should wait here at least 10s.
-                    if (nEvseModemMissingCounter>10) {
+                    if (nEvseModemMissingCounter>20) {
                             // We lost the connection to the EVSE modem. Back to the beginning.
                             addToTrace("[PEVSLAC] We lost the connection to the EVSE modem. Back to the beginning.");
                             slac_enterState(STATE_INITIAL);
