@@ -165,7 +165,7 @@ void setup() {
   Serial.println("CCS32 Started.");
   hardwareInterface_initDisplay();
   delay(800); /* wait until the display is up */  
-  hardwareInterface_showOnDisplay("2023-04-20", "Hello", "World");
+  hardwareInterface_showOnDisplay("2023-07-18", "Hello", "World");
   // Set pin mode
   pinMode(PIN_LED,OUTPUT);
   pinMode(PIN_STATE_C, OUTPUT);

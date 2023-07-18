@@ -36,6 +36,7 @@ uint16_t pev_numberOfCableCheckReq;
 uint8_t pev_wasPowerDeliveryRequestedOn;
 uint8_t pev_isBulbOn;
 uint16_t pev_cyclesLightBulbDelay;
+char strTmp[100];
 
 
 int32_t combineValueAndMultiplier(int32_t val, int8_t multiplier) {
@@ -91,8 +92,9 @@ void routeDecoderInputData(void) {
   */
   global_streamDec.data = &tcp_rxdata[V2GTP_HEADER_SIZE];
   global_streamDec.size = tcp_rxdataLen - V2GTP_HEADER_SIZE;
-  //addToTrace("The decoder will see:");  
-  showAsHex(global_streamDec.data, global_streamDec.size, "decoder will see");
+  #ifdef VERBOSE_EXI_DECODER
+    showAsHex(global_streamDec.data, global_streamDec.size, "decoder will see");
+  #endif
   /* We have something to decode, this is a good sign that the connection is fine.
      Inform the ConnectionManager that everything is fine. */
   connMgr_ApplOk();
@@ -282,11 +284,11 @@ void stateFunctionWaitForSupportedApplicationProtocolResponse(void) {
     if (aphsDoc.supportedAppProtocolRes_isUsed) {
         /* it is the correct response */
         addToTrace("supportedAppProtocolRes");
-        sprintf(gResultString, "ResponseCode %d, SchemaID_isUsed %d, SchemaID %d",
+        sprintf(strTmp, "ResponseCode %d, SchemaID_isUsed %d, SchemaID %d",
                       aphsDoc.supportedAppProtocolRes.ResponseCode,
                       aphsDoc.supportedAppProtocolRes.SchemaID_isUsed,
                       aphsDoc.supportedAppProtocolRes.SchemaID);
-        addToTrace(gResultString);
+        addToTrace(strTmp);
         publishStatus("Schema negotiated");
         addToTrace("Checkpoint403: Schema negotiated. And Checkpoint500: Will send SessionSetupReq");
         projectExiConnector_prepare_DinExiDocument();
@@ -742,16 +744,26 @@ void pev_enterState(uint8_t n) {
 
 uint8_t pev_isTooLong(void) {
   uint16_t limit;
-  // The timeout handling function.
-  limit = 30; // number of call cycles until timeout
+  /* The timeout handling function. */
+  limit = 66; /* number of call cycles until timeout. Default 66 cycles with 30ms, means approx. 2 seconds.
+        This 2s is the specified timeout time for many messages, fitting to the
+        performance time of 1.5s. Exceptions see below. */
+  if (pev_state==PEV_STATE_WaitForChargeParameterDiscoveryResponse) {
+    limit = 5*33; /* On some charger models, the chargeParameterDiscovery needs more than a second. Wait at least 5s. */
+  }
   if (pev_state==PEV_STATE_WaitForCableCheckResponse) {
-    limit = 30*30; // CableCheck may need some time. Wait at least 30s.
+    limit = 30*33; // CableCheck may need some time. Wait at least 30s.
   }
   if (pev_state==PEV_STATE_WaitForPreChargeResponse) {
-    limit = 30*30; // PreCharge may need some time. Wait at least 30s.
+    limit = 30*33; // PreCharge may need some time. Wait at least 30s.
   }
   if (pev_state==PEV_STATE_WaitForPowerDeliveryResponse) {
-    limit = 5*30; // PowerDelivery may need some time. Wait at least 5s. On Compleo charger, observed more than 1s until response.
+    limit = 6*33; /* PowerDelivery may need some time. Wait at least 6s. On Compleo charger, observed more than 1s until response.
+                     specified performance time is 4.5s (ISO) */
+  }
+  if (pev_state==PEV_STATE_WaitForCurrentDemandResponse) {
+    limit = 5*33;  /* Test with 5s timeout. Just experimental.
+                      The specified performance time is 25ms (ISO), the specified timeout 250ms. */
   }
   return (pev_cyclesInState > limit);
 }
